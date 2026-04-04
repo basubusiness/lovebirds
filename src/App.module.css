@@ -80,6 +80,19 @@
   margin: 0 auto;
 }
 
+.headerActions { display: flex; gap: 6px; margin-left: auto; }
+
+.iconBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 0.5px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.iconBtn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 500px) {
   .header { padding: 0.6rem 0.75rem; gap: 10px; }

@@ -3,13 +3,15 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { VENDORS, SEED_PRODUCTS } from './constants';
 import { getStatus, uid } from './utils';
 
-import Dashboard    from './components/Dashboard';
-import Inventory    from './components/Inventory';
-import Alerts       from './components/Alerts';
-import Vendors      from './components/Vendors';
-import ProductModal from './components/ProductModal';
+import Dashboard     from './components/Dashboard';
+import Inventory     from './components/Inventory';
+import Alerts        from './components/Alerts';
+import Vendors       from './components/Vendors';
+import ProductModal  from './components/ProductModal';
+import ReceiptModal  from './components/ReceiptModal';
+import SettingsModal from './components/SettingsModal';
 import { ConsumeModal, RestockModal } from './components/QuickModals';
-import Toast        from './components/Toast';
+import Toast         from './components/Toast';
 
 import styles from './App.module.css';
 
@@ -21,16 +23,19 @@ const TABS = [
 ];
 
 export default function App() {
-  const [products, setProducts] = useLocalStorage('hirt_products', SEED_PRODUCTS);
-  const [tab,      setTab]      = useState('dashboard');
-  const [modal,    setModal]    = useState(null);   // null | {} (new) | product (edit)
-  const [consume,  setConsume]  = useState(null);
-  const [restock,  setRestock]  = useState(null);
-  const [toast,    setToast]    = useState(null);
+  const [products, setProducts]   = useLocalStorage('hirt_products', SEED_PRODUCTS);
+  const [apiKey,   setApiKey]     = useLocalStorage('hirt_gemini_key', '');
+  const [tab,      setTab]        = useState('dashboard');
+  const [modal,    setModal]      = useState(null);
+  const [consume,  setConsume]    = useState(null);
+  const [restock,  setRestock]    = useState(null);
+  const [receipt,  setReceipt]    = useState(false);
+  const [settings, setSettings]   = useState(false);
+  const [toast,    setToast]      = useState(null);
 
   const notify = msg => setToast(msg);
 
-  /* ── product CRUD ─────────────────────────────────── */
+  /* product CRUD */
   const saveProduct = useCallback((p) => {
     setProducts(prev => {
       const idx = prev.findIndex(x => x.id === p.id);
@@ -47,14 +52,14 @@ export default function App() {
     notify('Product removed');
   }, [setProducts]);
 
-  /* ── consumption / restock ────────────────────────── */
+  /* consumption / restock */
   const logConsume = useCallback((qty) => {
     setProducts(prev => prev.map(p =>
       p.id === consume.id
         ? { ...p, currentQty: parseFloat(Math.max(0, p.currentQty - qty).toFixed(2)) }
         : p
     ));
-    notify(`Logged −${qty} ${consume.unit}`);
+    notify(`Logged -${qty} ${consume.unit}`);
     setConsume(null);
   }, [consume, setProducts]);
 
@@ -68,12 +73,45 @@ export default function App() {
     setRestock(null);
   }, [restock, setProducts]);
 
-  /* ── alert badge count ────────────────────────────── */
+  /* receipt import */
+  const handleReceiptConfirm = useCallback((parsedItems) => {
+    let added = 0, updated = 0;
+    setProducts(prev => {
+      let next = [...prev];
+      parsedItems.forEach(item => {
+        const match = item.matched ? next.find(p => p.id === item.matched.id) : null;
+        if (match) {
+          next = next.map(p =>
+            p.id === match.id
+              ? { ...p, currentQty: parseFloat((p.currentQty + item.editQty).toFixed(2)) }
+              : p
+          );
+          updated++;
+        } else {
+          next.push({
+            id: uid(),
+            name: item.editName,
+            cat: 'Other',
+            unit: item.editUnit,
+            minQty: 1,
+            currentQty: item.editQty,
+            vendor: 'cactus',
+            burnRate: 0,
+            note: `Imported from receipt (${item.vendorGuess})`,
+          });
+          added++;
+        }
+      });
+      return next;
+    });
+    setReceipt(false);
+    notify(`Receipt imported: ${updated} updated, ${added} new item${added !== 1 ? 's' : ''}`);
+  }, [setProducts]);
+
   const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
 
   return (
     <div className={styles.app}>
-      {/* ── Top nav ──────────────────────────────────── */}
       <header className={styles.header}>
         <div className={styles.logo}>HIRT</div>
         <nav className={styles.nav}>
@@ -90,25 +128,31 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className={styles.headerActions}>
+          <button className={styles.iconBtn} onClick={() => setReceipt(true)} title="Import receipt">
+            Import
+          </button>
+          <button className={styles.iconBtn} onClick={() => setSettings(true)} title="Settings">
+            Settings
+          </button>
+        </div>
       </header>
 
-      {/* ── Main content ─────────────────────────────── */}
       <main className={styles.main}>
         {tab === 'dashboard' && <Dashboard products={products} vendors={VENDORS} />}
         {tab === 'inventory' && (
           <Inventory
             products={products}
-            onEdit={p  => setModal(p)}
+            onEdit={p => setModal(p)}
             onConsume={p => setConsume(p)}
             onRestock={p => setRestock(p)}
             onAdd={() => setModal({})}
           />
         )}
-        {tab === 'alerts'    && <Alerts   products={products} />}
-        {tab === 'vendors'   && <Vendors  products={products} />}
+        {tab === 'alerts'  && <Alerts   products={products} />}
+        {tab === 'vendors' && <Vendors  products={products} />}
       </main>
 
-      {/* ── Modals ───────────────────────────────────── */}
       {modal !== null && (
         <ProductModal
           product={modal?.id ? modal : null}
@@ -123,8 +167,22 @@ export default function App() {
       {restock && (
         <RestockModal product={restock} onSave={logRestock} onClose={() => setRestock(null)} />
       )}
+      {receipt && (
+        <ReceiptModal
+          products={products}
+          apiKey={apiKey}
+          onConfirm={handleReceiptConfirm}
+          onClose={() => setReceipt(false)}
+        />
+      )}
+      {settings && (
+        <SettingsModal
+          apiKey={apiKey}
+          onSave={setApiKey}
+          onClose={() => setSettings(false)}
+        />
+      )}
 
-      {/* ── Toast ────────────────────────────────────── */}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
