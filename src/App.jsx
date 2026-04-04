@@ -39,13 +39,13 @@ export default function App() {
     });
     setModal(null);
     notify(modal?.id ? 'Product updated' : 'Product added');
-  }, [modal]);
+  }, [modal, setProducts]);
 
   const deleteProduct = useCallback((id) => {
     setProducts(prev => prev.filter(p => p.id !== id));
     setModal(null);
     notify('Product removed');
-  }, []);
+  }, [setProducts]);
 
   /* ── consumption / restock ────────────────────────── */
   const logConsume = useCallback((qty) => {
@@ -56,7 +56,7 @@ export default function App() {
     ));
     notify(`Logged −${qty} ${consume.unit}`);
     setConsume(null);
-  }, [consume]);
+  }, [consume, setProducts]);
 
   const logRestock = useCallback((qty) => {
     setProducts(prev => prev.map(p =>
@@ -66,7 +66,7 @@ export default function App() {
     ));
     notify(`Added +${qty} ${restock.unit}`);
     setRestock(null);
-  }, [restock]);
+  }, [restock, setProducts]);
 
   /* ── alert badge count ────────────────────────────── */
   const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
