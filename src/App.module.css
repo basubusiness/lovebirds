@@ -1,0 +1,88 @@
+.app {
+  min-height: 100vh;
+  background: var(--bg-tertiary);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────── */
+.header {
+  background: var(--bg-primary);
+  border-bottom: 0.5px solid var(--border-light);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #1D9E75;
+  flex-shrink: 0;
+}
+
+.nav {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+
+.navBtn {
+  padding: 5px 13px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.navBtn:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+
+.navActive {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 0.5px solid var(--border-light);
+}
+
+.alertBadge {
+  background: #E24B4A;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 10px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── Main ────────────────────────────────── */
+.main {
+  flex: 1;
+  padding: 1.25rem 1rem;
+  max-width: 740px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Mobile ──────────────────────────────── */
+@media (max-width: 500px) {
+  .header { padding: 0.6rem 0.75rem; gap: 10px; }
+  .main   { padding: 1rem 0.75rem; }
+  .navBtn { padding: 5px 10px; font-size: 11px; }
+}
