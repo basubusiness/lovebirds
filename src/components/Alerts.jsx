@@ -1,4 +1,3 @@
-import { VENDORS } from '../constants';
 import { getStatus, daysLeft, needsOrder, vendorOf } from '../utils';
 import styles from './Alerts.module.css';
 

@@ -1,5 +1,5 @@
 import { VENDORS } from '../constants';
-import { getStatus, vendorOf } from '../utils';
+import { getStatus } from '../utils';
 import styles from './Vendors.module.css';
 
 export default function Vendors({ products }) {
