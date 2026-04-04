@@ -1,0 +1,81 @@
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 1.25rem;
+}
+
+.metric {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.metricLabel { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.metricValue { font-size: 24px; font-weight: 500; }
+
+.metricCritical { background: #FCEBEB; }
+.metricCritical .metricLabel { color: #A32D2D; }
+.metricCritical .metricValue { color: #E24B4A; }
+
+.metricLow { background: #FAEEDA; }
+.metricLow .metricLabel { color: #854F0B; }
+.metricLow .metricValue { color: #BA7517; }
+
+.metricOk { background: #EAF3DE; }
+.metricOk .metricLabel { color: #3B6D11; }
+.metricOk .metricValue { color: #1D9E75; }
+
+.card {
+  background: var(--bg-primary);
+  border: 0.5px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.cardTitle { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+
+.alertRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border-left: 3px solid transparent;
+}
+.alertRow:last-child { margin-bottom: 0; }
+
+.critical { border-left-color: #E24B4A; background: #FCEBEB; }
+.low      { border-left-color: #EF9F27; background: #FAEEDA; }
+
+.alertInfo { flex: 1; }
+.alertName { font-weight: 500; font-size: 13px; }
+.alertSub  { font-size: 11px; margin-top: 2px; color: var(--text-secondary); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.badge_ok       { background: #EAF3DE; color: #3B6D11; }
+.badge_low      { background: #FAEEDA; color: #854F0B; }
+.badge_critical { background: #FCEBEB; color: #A32D2D; }
+
+.vendorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--border-light);
+  font-size: 13px;
+}
+.vendorRow:last-child { border-bottom: none; }
+
+.vendorDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.vendorName { flex: 1; }
+.chip       { font-size: 11px; background: var(--bg-secondary); color: var(--text-secondary); padding: 2px 8px; border-radius: 20px; }
+.minOrder   { font-size: 11px; color: var(--text-secondary); }

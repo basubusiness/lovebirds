@@ -1,0 +1,33 @@
+.formRow { margin-bottom: 12px; }
+.formRow label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--border-light);
+}
+
+.rightActions { display: flex; gap: 8px; }
+
+.saveBtn {
+  background: #1D9E75;
+  color: #fff;
+  border-color: #1D9E75;
+}
+.saveBtn:hover { background: #0F6E56; }
+
+.deleteBtn {
+  color: #E24B4A;
+  border-color: #E24B4A;
+  background: transparent;
+}
+.deleteBtn:hover { background: #FCEBEB; }

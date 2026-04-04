@@ -1,0 +1,45 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  border: 0.5px solid var(--border-light);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.closeBtn {
+  padding: 4px 8px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.closeBtn:hover {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}

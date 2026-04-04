@@ -1,0 +1,22 @@
+.productName {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.formRow { margin-bottom: 12px; }
+.formRow label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.primaryBtn {
+  background: #1D9E75;
+  color: #fff;
+  border-color: #1D9E75;
+}
+.primaryBtn:hover { background: #0F6E56; }

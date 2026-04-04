@@ -1,0 +1,57 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  background: var(--bg-primary);
+  border: 0.5px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.vendorName { font-weight: 500; font-size: 13px; }
+.itemCount  { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+.details { display: flex; flex-direction: column; gap: 6px; }
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.detailLabel { color: var(--text-secondary); }
+.detailValue { font-weight: 500; }
+
+.badgeCritical, .badgeLow {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.badgeCritical { background: #FCEBEB; color: #A32D2D; }
+.badgeLow      { background: #FAEEDA; color: #854F0B; }
