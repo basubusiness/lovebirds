@@ -3,9 +3,9 @@ import { getStatus, daysLeft, stockPct, barColor, vendorOf } from '../utils';
 import { useCategories } from '../hooks/useCategories';
 import styles from './Inventory.module.css';
 
-// ── Single product row ────────────────────────────────────────
+// ── Single product card ───────────────────────────────────────
 
-function ProductRow({ p, onEdit, onConsume, onRestock }) {
+function ProductCard({ p, catIcon, onEdit, onConsume, onRestock }) {
   const st  = getStatus(p);
   const dl  = daysLeft(p);
   const v   = vendorOf(p.vendor);
@@ -13,37 +13,50 @@ function ProductRow({ p, onEdit, onConsume, onRestock }) {
   const isUrgent = dl !== null && dl <= v.leadDays;
 
   return (
-    <tr className={styles.row}>
-      <td>
-        <div className={styles.productName}>{p.name}</div>
-      </td>
-      <td className={styles.stockCell}>
-        <div className={styles.stockTop}>
-          <span>{p.currentQty} {p.unit}</span>
-          <span className={`${styles.badge} ${styles['badge_' + st]}`}>{st}</span>
-        </div>
-        <div className={styles.barWrap}>
-          <div className={styles.bar} style={{ width: pct + '%', background: barColor(st) }} />
-        </div>
-        <div className={styles.minLabel}>min {p.minQty} {p.unit}</div>
-      </td>
-      <td>
-        <div className={styles.vendorCell}>
-          <span className={styles.vendorDot} style={{ background: v.color }} />
-          <span className={styles.vendorName}>{v.name}</span>
-        </div>
-      </td>
-      <td className={isUrgent ? styles.urgent : ''}>
-        {dl !== null ? (dl === 0 ? 'Today!' : `${dl}d`) : '—'}
-      </td>
-      <td>
-        <div className={styles.actions}>
-          <button className={styles.actionBtn} onClick={() => onConsume(p)} title="Log use">−</button>
-          <button className={`${styles.actionBtn} ${styles.actionRestock}`} onClick={() => onRestock(p)} title="Restock">+</button>
-          <button className={styles.actionBtn} onClick={() => onEdit(p)} title="Edit">✎</button>
-        </div>
-      </td>
-    </tr>
+    <div className={`${styles.card} ${styles['card_' + st]}`}>
+
+      {/* Top row: emoji + name + status dot */}
+      <div className={styles.cardTop}>
+        <span className={styles.cardEmoji}>{catIcon}</span>
+        <span className={styles.cardName}>{p.name}</span>
+        <span className={`${styles.statusDot} ${styles['dot_' + st]}`} />
+      </div>
+
+      {/* Stock bar */}
+      <div className={styles.barWrap}>
+        <div
+          className={styles.bar}
+          style={{ width: pct + '%', background: barColor(st) }}
+        />
+      </div>
+
+      {/* Qty + badge */}
+      <div className={styles.cardMeta}>
+        <span className={styles.qty}>
+          <strong>{p.currentQty}</strong> {p.unit}
+          <span className={styles.minHint}> / {p.minQty} min</span>
+        </span>
+        <span className={`${styles.badge} ${styles['badge_' + st]}`}>{st}</span>
+      </div>
+
+      {/* Vendor + days */}
+      <div className={styles.vendorRow}>
+        <span className={styles.vendorDot} style={{ background: v.color }} />
+        <span className={styles.vendorName}>{v.name}</span>
+        {dl !== null && (
+          <span className={`${styles.days} ${isUrgent ? styles.daysUrgent : ''}`}>
+            {dl === 0 ? 'today!' : `${dl}d`}
+          </span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className={styles.cardActions}>
+        <button className={styles.actBtn} onClick={() => onConsume(p)} title="Log use">−</button>
+        <button className={`${styles.actBtn} ${styles.actRestock}`} onClick={() => onRestock(p)} title="Restock">+ restock</button>
+        <button className={styles.actBtn} onClick={() => onEdit(p)} title="Edit">✎</button>
+      </div>
+    </div>
   );
 }
 
@@ -54,20 +67,27 @@ function SubCategoryBlock({ subCat, products, onEdit, onConsume, onRestock }) {
   if (products.length === 0) return null;
 
   return (
-    <tbody>
-      <tr className={styles.subCatRow}>
-        <td colSpan={5}>
-          <button className={styles.subCatToggle} onClick={() => setOpen(o => !o)}>
-            <span className={styles.subCatChevron}>{open ? '▾' : '▸'}</span>
-            <span className={styles.subCatName}>{subCat.icon} {subCat.name}</span>
-            <span className={styles.subCatCount}>{products.length}</span>
-          </button>
-        </td>
-      </tr>
-      {open && products.map(p => (
-        <ProductRow key={p.id} p={p} onEdit={onEdit} onConsume={onConsume} onRestock={onRestock} />
-      ))}
-    </tbody>
+    <div className={styles.subBlock}>
+      <button className={styles.subLabel} onClick={() => setOpen(o => !o)}>
+        <span>{subCat.icon} {subCat.name}</span>
+        <span className={styles.subCount}>{products.length}</span>
+        <span className={styles.subChevron}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className={styles.cardGrid}>
+          {products.map(p => (
+            <ProductCard
+              key={p.id}
+              p={p}
+              catIcon={subCat.icon || '📦'}
+              onEdit={onEdit}
+              onConsume={onConsume}
+              onRestock={onRestock}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -76,17 +96,15 @@ function SubCategoryBlock({ subCat, products, onEdit, onConsume, onRestock }) {
 function CategorySection({ topCat, subCats, products, onEdit, onConsume, onRestock }) {
   const [open, setOpen] = useState(true);
 
-  // Products directly under this top-level cat with no sub-category
   const unassigned = products.filter(p =>
     p.categoryId === topCat.id ||
     (!p.categoryId && !subCats.some(s => s.id === p.categoryId))
   );
 
-  const hasAnything = products.length > 0;
-  if (!hasAnything) return null;
+  if (products.length === 0) return null;
 
   return (
-    <div className={styles.categorySection}>
+    <div className={styles.catSection}>
       <button className={styles.catHeader} onClick={() => setOpen(o => !o)}>
         <span className={styles.catIcon}>{topCat.icon}</span>
         <span className={styles.catName}>{topCat.name}</span>
@@ -95,18 +113,7 @@ function CategorySection({ topCat, subCats, products, onEdit, onConsume, onResto
       </button>
 
       {open && (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Stock</th>
-              <th>Vendor</th>
-              <th>Days left</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          {/* Sub-category groups */}
+        <div className={styles.catBody}>
           {subCats.map(sub => (
             <SubCategoryBlock
               key={sub.id}
@@ -118,15 +125,21 @@ function CategorySection({ topCat, subCats, products, onEdit, onConsume, onResto
             />
           ))}
 
-          {/* Unassigned items directly under top-level */}
           {unassigned.length > 0 && (
-            <tbody>
+            <div className={styles.cardGrid}>
               {unassigned.map(p => (
-                <ProductRow key={p.id} p={p} onEdit={onEdit} onConsume={onConsume} onRestock={onRestock} />
+                <ProductCard
+                  key={p.id}
+                  p={p}
+                  catIcon={topCat.icon || '📦'}
+                  onEdit={onEdit}
+                  onConsume={onConsume}
+                  onRestock={onRestock}
+                />
               ))}
-            </tbody>
+            </div>
           )}
-        </table>
+        </div>
       )}
     </div>
   );
@@ -141,20 +154,17 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onAd
 
   const statusOrder = { critical: 0, low: 1, ok: 2 };
 
-  // Filter by search
   let shown = products.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Sort within each group
   if (sort === 'status') shown = [...shown].sort((a, b) => statusOrder[getStatus(a)] - statusOrder[getStatus(b)]);
   else if (sort === 'name') shown = [...shown].sort((a, b) => a.name.localeCompare(b.name));
   else if (sort === 'qty')  shown = [...shown].sort((a, b) => a.currentQty - b.currentQty);
 
-  // Products with no category at all → "Other"
   const uncategorized = shown.filter(p => {
     if (!p.categoryId) return true;
-    return !byId(p.categoryId); // category was deleted
+    return !byId(p.categoryId);
   });
 
   return (
@@ -179,12 +189,10 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onAd
       ) : shown.length === 0 ? (
         <div className={styles.empty}>No items found</div>
       ) : (
-        <div className={styles.tableWrap}>
-          {/* Render each top-level category */}
+        <div>
           {topLevel.map(topCat => {
             const subs = childrenOf(topCat.id);
             const allSubIds = subs.map(s => s.id);
-            // All products belonging to this top-level tree
             const catProducts = shown.filter(p =>
               p.categoryId === topCat.id || allSubIds.includes(p.categoryId)
             );
@@ -201,7 +209,6 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onAd
             );
           })}
 
-          {/* Uncategorized items */}
           {uncategorized.length > 0 && (
             <CategorySection
               topCat={{ id: null, name: 'Uncategorized', icon: '📦' }}
