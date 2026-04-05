@@ -17,7 +17,7 @@ function ConfidencePip({ level }) {
   );
 }
 
-export default function ReceiptModal({ products, onConfirm, onClose, apiKey }) {
+export default function ReceiptModal({ products, onConfirm, onClose }) {
   const [step, setStep]       = useState(STEPS.upload);
   const [file, setFile]       = useState(null);
   const [preview, setPreview] = useState(null);
@@ -50,7 +50,7 @@ export default function ReceiptModal({ products, onConfirm, onClose, apiKey }) {
     setStep(STEPS.parsing);
     setError(null);
     try {
-      const parsed = await parseReceipt(file, apiKey);
+      const parsed = await parseReceipt(file);
       if (parsed.length === 0) {
         setError('No items found. Try a clearer photo or different receipt.');
         setStep(STEPS.upload);
