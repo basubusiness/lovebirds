@@ -9,7 +9,7 @@
  */
 
 const GEMINI_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 const PROMPT = `You are a household inventory assistant. Analyze this receipt or order document.
 
