@@ -1,12 +1,4 @@
-/**
- * Vercel Serverless Function — /api/parse-receipt
- * Uses OpenRouter to access free vision models (Qwen2.5 VL etc.)
- * API key stored securely in Vercel environment variables.
- */
-
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-
-// Free vision models on OpenRouter — falls back down the list if one is unavailable
 const MODEL = 'openrouter/free';
 
 const PROMPT = `You are a household inventory assistant. Analyze this receipt or order document.
@@ -28,7 +20,7 @@ Rules:
 
 Return only the JSON array, nothing else.`;
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -49,7 +41,7 @@ export default async function handler(req, res) {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://hirt.vercel.app',
+        'HTTP-Referer': 'https://lovebirds.vercel.app',
         'X-Title': 'HIRT Household Tracker',
       },
       body: JSON.stringify({
@@ -92,4 +84,4 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Failed to parse receipt' });
   }
-}
+};
