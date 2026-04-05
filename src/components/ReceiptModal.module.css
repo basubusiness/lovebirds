@@ -166,3 +166,35 @@
   margin-bottom: 0.75rem;
   line-height: 1.4;
 }
+
+/* ── Batch vendor + date fields ──────────────────────────────── */
+.batchFields {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.batchField {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.batchLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.batchSelect,
+.batchDate {
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-medium);
+  background: var(--bg-primary);
+  width: 100%;
+}
