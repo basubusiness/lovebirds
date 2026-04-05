@@ -1,0 +1,211 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.empty {
+  color: var(--text-secondary, #888);
+  text-align: center;
+  padding: 2rem 0;
+  font-size: 0.9rem;
+}
+
+/* ── Card ── */
+.card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface, #fff);
+}
+
+/* ── Summary row ── */
+.summaryRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.summaryRow:hover {
+  background: var(--surface-hover, #f9fafb);
+}
+
+.vendor {
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 110px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.metaItem {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+}
+
+.badge {
+  font-size: 0.75rem;
+  background: var(--bg-subtle, #f0f0f0);
+  color: var(--text-secondary, #555);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+}
+
+.chevron {
+  font-size: 0.7rem;
+  color: var(--text-secondary, #aaa);
+  margin-left: auto;
+}
+
+/* ── Detail panel ── */
+.detail {
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding: 0.75rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Item snapshot */
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bg-subtle, #f9fafb);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.itemName {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-primary, #111);
+}
+
+.newTag {
+  font-size: 0.7rem;
+  background: var(--accent-light, #e8f5f0);
+  color: var(--accent, #1D9E75);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+}
+
+.itemQty {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+}
+
+/* Edit fields */
+.editFields {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 120px;
+}
+
+.fieldLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #555);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldSelect,
+.fieldDate {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: var(--surface, #fff);
+  color: inherit;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.actions button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: inherit;
+}
+
+.deleteBtn {
+  color: var(--danger, #E24B4A) !important;
+  border-color: var(--danger, #E24B4A) !important;
+}
+
+.saveBtn {
+  background: var(--accent, #1D9E75) !important;
+  color: #fff !important;
+  border-color: var(--accent, #1D9E75) !important;
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Confirm delete */
+.confirmDelete {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.confirmText {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+  flex: 1;
+}
+
+.dangerBtn {
+  background: var(--danger, #E24B4A) !important;
+  color: #fff !important;
+  border-color: var(--danger, #E24B4A) !important;
+}

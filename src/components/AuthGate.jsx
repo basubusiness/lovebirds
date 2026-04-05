@@ -4,9 +4,10 @@
  * Wraps the entire app. If the user is not logged in, shows a
  * Google Sign-in screen. Once authenticated, renders children.
  *
- * Add to App.jsx:
- *   import AuthGate from './components/AuthGate';
- *   // Wrap <div className={styles.app}> content with <AuthGate>
+ * Change vs previous: signInWithGoogle now passes
+ *   queryParams: { prompt: 'select_account' }
+ * so Google always shows the account-picker instead of silently
+ * reusing the browser's active session.
  */
 
 import { useEffect, useState, createContext, useContext } from 'react';
@@ -40,12 +41,10 @@ export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined); // undefined = loading
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session ?? null);
     });
 
-    // Listen for login / logout
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s ?? null);
     });
@@ -58,13 +57,16 @@ export default function AuthGate({ children }) {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
+        // Always show the Google account picker so the user can
+        // switch accounts instead of being silently logged into
+        // whichever account the browser already has active.
+        queryParams: { prompt: 'select_account' },
       },
     });
   };
 
   const signOut = () => supabase.auth.signOut();
 
-  // Still loading
   if (session === undefined) {
     return (
       <div className={styles.loadingScreen}>
@@ -73,13 +75,12 @@ export default function AuthGate({ children }) {
     );
   }
 
-  // Not logged in → show sign-in screen
   if (!session) {
     return (
       <div className={styles.loginScreen}>
         <div className={styles.loginCard}>
           <div className={styles.logo}>HIRT</div>
-          <div className={styles.tagline}>Household Inventory & Replenishment Tracker</div>
+          <div className={styles.tagline}>Household Inventory &amp; Replenishment Tracker</div>
           <button className={styles.googleBtn} onClick={signInWithGoogle}>
             <GoogleIcon />
             Sign in with Google
@@ -92,12 +93,9 @@ export default function AuthGate({ children }) {
     );
   }
 
-  // Logged in → render app with sign-out available via context
   return (
     <AuthContext.Provider value={{ session, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-
