@@ -146,3 +146,11 @@
   color: var(--text-secondary);
   margin-left: auto;
 }
+
+.nameHint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-style: normal;
+}
+.nameHint em { color: #1D9E75; font-style: normal; }

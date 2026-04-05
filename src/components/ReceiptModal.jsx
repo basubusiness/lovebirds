@@ -50,7 +50,7 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
     setStep(STEPS.parsing);
     setError(null);
     try {
-      const parsed = await parseReceipt(file);
+      const parsed = await parseReceipt(file, products);
       if (parsed.length === 0) {
         setError('No items found. Try a clearer photo or different receipt.');
         setStep(STEPS.upload);
@@ -58,16 +58,17 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
       }
       // Enrich: try to match against existing products
       const enriched = parsed.map(item => {
-        const match = products.find(p =>
-          p.name.toLowerCase().includes(item.name.toLowerCase()) ||
-          item.name.toLowerCase().includes(p.name.toLowerCase())
-        );
+        // Step 2 already did the matching via matchedId
+        const match = item.matchedId
+          ? products.find(p => p.id === item.matchedId)
+          : null;
         return {
           ...item,
           matched: match || null,
           selected: true,
-          // editable fields
-          editName: item.name,
+          editName: item.nameCanonical || item.name,
+          editNameOrig: item.name,
+          editNameEn: item.nameEn || '',
           editQty: item.quantity,
           editUnit: item.unit,
         };
@@ -189,6 +190,11 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
                     />
                     <ConfidencePip level={item.confidence} />
                   </div>
+                  {item.editNameEn && item.editNameEn !== item.editName && (
+                    <div className={styles.nameHint}>
+                      {item.editNameOrig} · <em>{item.editNameEn}</em>
+                    </div>
+                  )}
                   <div className={styles.itemBottom}>
                     <input
                       type="number"
