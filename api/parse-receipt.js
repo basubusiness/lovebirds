@@ -12,7 +12,7 @@ const GEMINI_ENDPOINT =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const GEMINI_TEXT_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const RETRY_BASE_MS = 300;
 const VALID_UNITS = ['pc', 'kg', 'g', 'L', 'ml', 'pack'];
