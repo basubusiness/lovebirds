@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import Modal from './Modal';
 import { parseReceipt } from '../services/aiParser';
-import { VENDORS, UNITS } from '../constants';
+import { UNITS } from '../constants';
 import styles from './ReceiptModal.module.css';
 
 const STEPS = { upload: 'upload', parsing: 'parsing', confirm: 'confirm', done: 'done' };
