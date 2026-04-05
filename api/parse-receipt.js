@@ -1,15 +1,13 @@
 /**
  * Vercel Serverless Function — /api/parse-receipt
- *
- * Receives a base64-encoded receipt image or PDF from the frontend,
- * calls Gemini with the hidden API key, and returns parsed items.
- *
- * The GEMINI_API_KEY environment variable is set in Vercel's dashboard
- * and is never exposed to the browser.
+ * Uses OpenRouter to access free vision models (Qwen2.5 VL etc.)
+ * API key stored securely in Vercel environment variables.
  */
 
-const GEMINI_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+
+// Free vision models on OpenRouter — falls back down the list if one is unavailable
+const MODEL = 'openrouter/free';
 
 const PROMPT = `You are a household inventory assistant. Analyze this receipt or order document.
 
@@ -31,50 +29,59 @@ Rules:
 Return only the JSON array, nothing else.`;
 
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured on server' });
   }
 
   const { base64, mimeType } = req.body;
   if (!base64 || !mimeType) {
-    return res.status(400).json({ error: 'Missing base64 or mimeType in request body' });
+    return res.status(400).json({ error: 'Missing base64 or mimeType' });
   }
 
   try {
-    const geminiRes = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
+    const response = await fetch(OPENROUTER_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://hirt.vercel.app',
+        'X-Title': 'HIRT Household Tracker',
+      },
       body: JSON.stringify({
-        contents: [
+        model: MODEL,
+        messages: [
           {
-            parts: [
-              { text: PROMPT },
-              { inline_data: { mime_type: mimeType, data: base64 } },
+            role: 'user',
+            content: [
+              { type: 'text', text: PROMPT },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64}`,
+                },
+              },
             ],
           },
         ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1024,
-        },
+        max_tokens: 1024,
+        temperature: 0.1,
       }),
     });
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.json().catch(() => ({}));
-      return res.status(geminiRes.status).json({
-        error: err?.error?.message || `Gemini error ${geminiRes.status}`,
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        error: err?.error?.message || `OpenRouter error ${response.status}`,
       });
     }
 
-    const data = await geminiRes.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content || '';
 
     const clean = text.replace(/```json|```/g, '').trim();
     const items = JSON.parse(clean);
