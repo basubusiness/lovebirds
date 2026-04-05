@@ -26,7 +26,7 @@ const TABS = [
 // ── Inner app (rendered only when authenticated) ─────────────────────────────
 
 function AppInner() {
-  const { session, signOut }                = useAuth();
+  const { session }                         = useAuth();
   const [products, setProducts, loading]    = useProducts();
   const [tab,      setTab]                  = useState('dashboard');
   const [modal,    setModal]                = useState(null);
