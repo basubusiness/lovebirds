@@ -4,7 +4,7 @@ import { parseReceipt } from '../services/aiParser';
 import { UNITS } from '../constants';
 import styles from './ReceiptModal.module.css';
 
-const STEPS = { upload: 'upload', parsing: 'parsing', confirm: 'confirm', done: 'done' };
+const STEPS = { upload: 'upload', parsing: 'parsing', confirm: 'confirm' };
 
 function ConfidencePip({ level }) {
   const colors = { high: '#1D9E75', medium: '#EF9F27', low: '#E24B4A' };
@@ -18,11 +18,12 @@ function ConfidencePip({ level }) {
 }
 
 export default function ReceiptModal({ products, onConfirm, onClose }) {
-  const [step, setStep]       = useState(STEPS.upload);
-  const [file, setFile]       = useState(null);
+  const [step,    setStep]    = useState(STEPS.upload);
+  const [file,    setFile]    = useState(null);
   const [preview, setPreview] = useState(null);
-  const [items, setItems]     = useState([]);
-  const [error, setError]     = useState(null);
+  const [items,   setItems]   = useState([]);
+  const [error,   setError]   = useState(null);
+  const [warning, setWarning] = useState(null); // step2 degraded-mode banner
   const fileRef               = useRef();
 
   /* ── file selection ──────────────────────────────── */
@@ -30,9 +31,9 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
     if (!f) return;
     setFile(f);
     setError(null);
+    setWarning(null);
     if (f.type.startsWith('image/')) {
-      const url = URL.createObjectURL(f);
-      setPreview(url);
+      setPreview(URL.createObjectURL(f));
     } else {
       setPreview(null);
     }
@@ -49,31 +50,34 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
     if (!file) return;
     setStep(STEPS.parsing);
     setError(null);
+    setWarning(null);
     try {
-      const parsed = await parseReceipt(file, products);
-      if (parsed.length === 0) {
+      const { items: parsed, warning: w } = await parseReceipt(file, products);
+
+      if (!parsed || parsed.length === 0) {
         setError('No items found. Try a clearer photo or different receipt.');
         setStep(STEPS.upload);
         return;
       }
-      // Enrich: try to match against existing products
+
       const enriched = parsed.map(item => {
-        // Step 2 already did the matching via matchedId
         const match = item.matchedId
           ? products.find(p => p.id === item.matchedId)
           : null;
         return {
           ...item,
-          matched: match || null,
-          selected: true,
-          editName: item.nameCanonical || item.name,
-          editNameOrig: item.name,
-          editNameEn: item.nameEn || '',
-          editQty: item.quantity,
-          editUnit: item.unit,
+          matched:       match || null,
+          selected:      true,
+          editName:      item.nameCanonical || item.name,
+          editNameOrig:  item.name,
+          editNameEn:    item.nameEn || '',
+          editQty:       item.quantity,
+          editUnit:      item.unit,
         };
       });
+
       setItems(enriched);
+      if (w) setWarning(w);
       setStep(STEPS.confirm);
     } catch (e) {
       setError(e.message);
@@ -91,7 +95,6 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
     onConfirm(approved);
   };
 
-  /* ── render ──────────────────────────────────────── */
   const selectedCount = items.filter(i => i.selected).length;
 
   return (
@@ -157,15 +160,22 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
         <div className={styles.parsingState}>
           <div className={styles.spinner} />
           <div className={styles.parsingText}>Gemini is reading your receipt…</div>
-          <div className={styles.parsingSub}>Usually takes 5–10 seconds</div>
+          <div className={styles.parsingSub}>Usually takes 5–15 seconds</div>
         </div>
       )}
 
       {/* ── CONFIRM STEP ── */}
       {step === STEPS.confirm && (
         <div>
+          {/* Degraded-mode warning banner */}
+          {warning && (
+            <div className={styles.warningBanner}>
+              ⚠️ {warning}
+            </div>
+          )}
+
           <p className={styles.confirmIntro}>
-            Tick the items to add to your inventory. Edit quantities if needed.
+            Tick the items to add to your inventory. Edit names and quantities if needed.
           </p>
 
           <div className={styles.itemList}>
