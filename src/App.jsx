@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { useProducts }   from './hooks/useProducts';
 import { VENDORS, SEED_PRODUCTS } from './constants';
 import { getStatus, uid } from './utils';
 
+import AuthGate, { useAuth } from './components/AuthGate';
 import Dashboard    from './components/Dashboard';
 import Inventory    from './components/Inventory';
 import Alerts       from './components/Alerts';
@@ -21,14 +22,17 @@ const TABS = [
   { id: 'vendors',   label: 'Vendors'   },
 ];
 
-export default function App() {
-  const [products, setProducts] = useLocalStorage('hirt_products', SEED_PRODUCTS);
-  const [tab,      setTab]      = useState('dashboard');
-  const [modal,    setModal]    = useState(null);
-  const [consume,  setConsume]  = useState(null);
-  const [restock,  setRestock]  = useState(null);
-  const [receipt,  setReceipt]  = useState(false);
-  const [toast,    setToast]    = useState(null);
+// ── Inner app (rendered only when authenticated) ─────────────────────────────
+
+function AppInner() {
+  const { session, signOut }                = useAuth();
+  const [products, setProducts, loading]    = useProducts();
+  const [tab,      setTab]                  = useState('dashboard');
+  const [modal,    setModal]                = useState(null);
+  const [consume,  setConsume]              = useState(null);
+  const [restock,  setRestock]              = useState(null);
+  const [receipt,  setReceipt]              = useState(false);
+  const [toast,    setToast]                = useState(null);
 
   const notify = msg => setToast(msg);
 
@@ -86,15 +90,15 @@ export default function App() {
           updated++;
         } else {
           next.push({
-            id: uid(),
-            name: item.editName,
-            cat: 'Other',
-            unit: item.editUnit,
-            minQty: 1,
+            id:         uid(),
+            name:       item.editName,
+            cat:        'Other',
+            unit:       item.editUnit,
+            minQty:     1,
             currentQty: item.editQty,
-            vendor: 'cactus',
-            burnRate: 0,
-            note: `Imported from receipt (${item.vendorGuess})`,
+            vendor:     'cactus',
+            burnRate:   0,
+            note:       `Imported from receipt (${item.vendorGuess})`,
           });
           added++;
         }
@@ -106,6 +110,14 @@ export default function App() {
   }, [setProducts]);
 
   const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div style={{ color: '#888', fontSize: '0.9rem' }}>Loading inventory…</div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.app}>
@@ -128,6 +140,14 @@ export default function App() {
         <div className={styles.headerActions}>
           <button className={styles.iconBtn} onClick={() => setReceipt(true)}>
             Import receipt
+          </button>
+          <button
+            className={styles.iconBtn}
+            onClick={signOut}
+            title={`Signed in as ${session?.user?.email}`}
+            style={{ opacity: 0.6 }}
+          >
+            Sign out
           </button>
         </div>
       </header>
@@ -171,5 +191,15 @@ export default function App() {
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
+  );
+}
+
+// ── Root export — wraps everything in AuthGate ───────────────────────────────
+
+export default function App() {
+  return (
+    <AuthGate>
+      <AppInner />
+    </AuthGate>
   );
 }
