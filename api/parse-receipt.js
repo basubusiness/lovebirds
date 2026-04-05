@@ -24,9 +24,10 @@ const VALID_CONFIDENCE = ['high', 'medium', 'low'];
 
 const EXTRACT_PROMPT = `Extract all purchased products from this receipt image.
 Return ONLY a JSON array, nothing else.
-Format: [{"name":"exact name","quantity":1,"unit":"pc","vendorGuess":"StoreName"}]
+Format: [{"name":"exact name on receipt","quantity":1,"unit":"pc","vendorGuess":"actual store name from receipt header or \"\" if not visible"}]
 Units: pc kg g L ml pack only.
-Skip discounts, taxes, fees, totals. If unreadable return [].`;
+Skip discounts, taxes, fees, totals. If unreadable return [].
+For vendorGuess: read the store name printed at the top of the receipt (e.g. "Cactus", "Auchan", "Delhaize"). If no store name is visible, use empty string "".`;
 
 // ─── Step 2 Prompt ───────────────────────────────────────────────────────────
 // Uses short field keys to minimize output tokens:
@@ -52,7 +53,7 @@ INVENTORY:
 ${inv}
 
 For each item return compact JSON with short keys:
-n=original name, en=English translation, c=canonical name (e.g."Whole Milk 1L"), q=quantity, u=unit(pc/kg/g/L/ml/pack), v=vendorGuess, m=inventory id if same product else null, cf=high/medium/low
+n=original name, en=English translation, c=canonical name (e.g."Whole Milk 1L"), q=quantity, u=unit(pc/kg/g/L/ml/pack), v=store name from receipt header (copy from input vendorGuess, empty string if none), m=inventory id if same product else null, cf=high/medium/low
 
 Return ONLY: {"items":[{"n":"","en":"","c":"","q":1,"u":"pc","v":"","m":null,"cf":"high"}]}`;
 }
