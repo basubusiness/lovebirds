@@ -95,12 +95,13 @@ function AppInner() {
             id:         uid(),
             name:       item.editName,
             cat:        'Other',
+            categoryId: null,
             unit:       item.editUnit,
             minQty:     1,
             currentQty: item.editQty,
-            vendor:     'cactus',
+            vendor:     item.batchVendor || 'cactus',
             burnRate:   0,
-            note:       `Imported from receipt (${item.vendorGuess})`,
+            note:       item.batchDate ? `Purchased ${item.batchDate}` : '',
           });
           added++;
         }
