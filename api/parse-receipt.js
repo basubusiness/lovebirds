@@ -2,49 +2,19 @@
  * parse-receipt.js  (Vercel Serverless Function)
  *
  * Pipeline:
- *   Step 1 — Gemini 2.5 Flash (vision)   → raw item extraction from image
- *   Step 2 — Gemini Flash 8B via OpenRouter → translate + normalise + match
- *             (falls back through a model chain if provider errors occur)
+ *   Step 1 — Gemini 2.5 Flash (vision)  → raw item extraction from image
+ *   Step 2 — Gemini 2.0 Flash (text)    → translate + normalise + match
  *
- * Root cause of "Provider returned error":
- *   Llama 3.3 70B :free on OpenRouter has very high 503/overloaded rates,
- *   especially outside US business hours. The fix is to use models with
- *   better free-tier availability. Model priority chain:
- *     1. google/gemini-flash-1.5-8b        (free, fast, great JSON, high uptime)
- *     2. mistralai/mistral-7b-instruct:free (reliable fallback, good JSON)
- *     3. meta-llama/llama-3.1-8b-instruct:free (last resort, smaller = faster queue)
- *
- * Other fixes:
- *   • Retries up to MAX_RETRIES, cycling through the model chain on 503/429
- *   • JSONL-style prompt — one object per line, partial responses still parse
- *   • extractJSONLines() recovers incomplete arrays line by line
- *   • System message anchors JSON-only output
- *   • Temperature 0 for maximum determinism
- *   • Graceful fallback: returns raw Gemini items + warning banner if all fails
- *   • Full error message surfaced (includes provider error body) for debugging
+ * Both steps use the same GEMINI_API_KEY — no OpenRouter needed.
  */
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const GEMINI_ENDPOINT =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+const GEMINI_TEXT_ENDPOINT =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-// Model chain: tried in order. On 503/429 we advance to the next model.
-// All are free-tier on OpenRouter; gemini-flash-8b has the highest availability.
-const NORMALIZE_MODELS = [
-  'openrouter/auto',                           // primary: auto-routes to best available free model
-  'google/gemini-2.0-flash-exp:free',          // fallback 1: reliable, great French→English
-  'mistralai/mistral-small-3.1-24b-instruct:free', // fallback 2: French company, strong translation
-];
-
-// Keep these aliases so the rest of the file compiles unchanged
-const NORMALIZE_MODEL          = NORMALIZE_MODELS[0];
-const NORMALIZE_MODEL_FALLBACK = NORMALIZE_MODELS[1];
-
-const RETRY_BASE_MS = 300; // short delay between model fallbacks
-
+const RETRY_BASE_MS = 300;
 const VALID_UNITS = ['pc', 'kg', 'g', 'L', 'ml', 'pack'];
 const VALID_CONFIDENCE = ['high', 'medium', 'low'];
 
@@ -67,178 +37,92 @@ Rules:
 
 // ─── Step 2 Prompt ───────────────────────────────────────────────────────────
 
-const NORMALIZE_SYSTEM = `You are a JSON-only API. You never output prose, markdown, or explanation.
-Your response must be a valid JSON object with a single key "items" containing an array.
-Example: {"items": [...]}
-You process household grocery receipts for a family in Luxembourg.`;
-
 function buildNormalizePrompt(rawItems, existingProducts) {
   const productList = existingProducts.length
     ? existingProducts.map(p => `{"id":"${p.id}","name":"${p.name}","unit":"${p.unit}"}`).join('\n')
     : '(none)';
 
-  // We ask for one JSON object per line (JSONL-style inside an array).
-  // This makes partial responses recoverable — each complete line is valid.
-  return `Process these receipt items for a Luxembourg household.
+  return `You are a household inventory assistant for a family in Luxembourg.
 Receipts may be in French, German, or Luxembourgish.
 
-INPUT ITEMS:
+INPUT ITEMS (from receipt):
 ${JSON.stringify(rawItems)}
 
 EXISTING INVENTORY (for matching):
 ${productList}
 
-OUTPUT RULES — extremely important:
-1. Return a JSON object with a single key "items" containing an array of objects.
-2. No markdown. No backticks. No explanation. Raw JSON only.
-3. Each object in the array must have EXACTLY these fields:
-   - "name"          : original name string (unchanged)
-   - "nameEn"        : English translation (short, clear)
-   - "nameCanonical" : clean display name e.g. "Whole Milk 1L" not "LAIT ENTIER UHT 1L COLIS"
-   - "quantity"      : original quantity number (unchanged)
-   - "unit"          : one of: pc kg g L ml pack
-   - "vendorGuess"   : store name string (unchanged)
-   - "matchedId"     : id string from EXISTING INVENTORY if same product, else null
-   - "confidence"    : "high" | "medium" | "low"
+Your task: for each input item, return a JSON object with these exact fields:
+- "name"          : original name (unchanged)
+- "nameEn"        : English translation (short and clear)
+- "nameCanonical" : clean canonical name e.g. "Whole Milk 1L" not "LAIT ENTIER UHT 1L COLIS"
+- "quantity"      : original quantity (unchanged)
+- "unit"          : one of: pc kg g L ml pack
+- "vendorGuess"   : store name (unchanged)
+- "matchedId"     : id from EXISTING INVENTORY if this is the same product, else null
+- "confidence"    : "high", "medium", or "low"
 
-Example of correct output for 2 items:
-{"items": [
-  {"name":"LAIT ENTIER 1L","nameEn":"Whole Milk","nameCanonical":"Whole Milk 1L","quantity":2,"unit":"L","vendorGuess":"Cactus","matchedId":null,"confidence":"high"},
-  {"name":"DISHWASHER TABS 30PC","nameEn":"Dishwasher Tablets","nameCanonical":"Dishwasher Tabs 30pc","quantity":1,"unit":"pack","vendorGuess":"Cactus","matchedId":"p3","confidence":"high"}
-]}
-
-Now process the INPUT ITEMS above. Output only the JSON object, nothing else.`;
+Return ONLY a JSON object: {"items": [ ... ]}
+No markdown, no explanation, just the JSON.`;
 }
 
 // ─── JSON Extraction ─────────────────────────────────────────────────────────
 
-/**
- * Extracts the items array from the response.
- * With json_object mode the model returns {"items": [...]}
- * Falls back to treating the whole response as an array for backwards compat.
- */
 function extractItems(text) {
+  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   let parsed;
   try {
-    parsed = JSON.parse(text.trim());
+    parsed = JSON.parse(cleaned);
   } catch {
-    // Try cleaning markdown fences
-    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      // Last resort: try the JSONL line-by-line approach
-      return extractJSONLines(text);
-    }
+    const start = cleaned.indexOf('{');
+    const end   = cleaned.lastIndexOf('}');
+    if (start === -1 || end === -1) throw new Error(`No JSON found: ${cleaned.slice(0, 200)}`);
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
   }
-
-  // Handle {"items": [...]} wrapper
   if (parsed && Array.isArray(parsed.items)) return parsed.items;
-  // Handle bare array fallback
   if (Array.isArray(parsed)) return parsed;
-
-  throw new Error(`Unexpected response shape: ${text.slice(0, 300)}`);
+  throw new Error(`Unexpected response shape: ${cleaned.slice(0, 200)}`);
 }
 
-function extractJSONLines(text) {
-  const results = [];
-  // Strip optional array brackets and markdown fences
-  const cleaned = text
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim()
-    .replace(/^\[/, '')
-    .replace(/\]$/, '');
-
-  for (const raw of cleaned.split('\n')) {
-    const line = raw.trim().replace(/,\s*$/, ''); // strip trailing comma
-    if (!line || line === '[' || line === ']') continue;
-    try {
-      const obj = JSON.parse(line);
-      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-        results.push(obj);
-      }
-    } catch {
-      // skip unparseable lines
-    }
-  }
-
-  if (results.length > 0) return results;
-
-  // Fallback: try the whole text as a standard JSON array
-  return extractJSONArray(text);
-}
-
-/**
- * Fallback extractor: find the outermost [ … ] and parse it,
- * attempting to recover truncated arrays by closing them.
- */
 function extractJSONArray(text) {
-  let cleaned = text
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
-
-  // Direct parse
+  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   try {
     const parsed = JSON.parse(cleaned);
     if (Array.isArray(parsed)) return parsed;
   } catch {}
-
-  // Slice to outermost array
   const start = cleaned.indexOf('[');
-  const end = cleaned.lastIndexOf(']');
-  if (start === -1) {
-    throw new Error(`No JSON array found. Model returned: ${text.slice(0, 400)}`);
-  }
-
-  const slice = end !== -1 ? cleaned.slice(start, end + 1) : cleaned.slice(start);
-
-  // Remove trailing commas
+  const end   = cleaned.lastIndexOf(']');
+  if (start === -1) throw new Error(`No JSON array found: ${cleaned.slice(0, 200)}`);
+  const slice = cleaned.slice(start, end + 1);
   const fixed = slice.replace(/,\s*([}\]])/g, '$1');
-
-  try {
-    return JSON.parse(fixed);
-  } catch {
-    // Try recovering complete objects from a truncated array
-    const lastBrace = fixed.lastIndexOf('},');
-    if (lastBrace > 0) {
-      try {
-        return JSON.parse(fixed.slice(0, lastBrace + 1) + ']');
-      } catch {}
-    }
-    throw new Error(`Could not parse Step 2 response: ${slice.slice(0, 400)}`);
+  try { return JSON.parse(fixed); } catch {}
+  const lastBrace = fixed.lastIndexOf('},');
+  if (lastBrace > 0) {
+    try { return JSON.parse(fixed.slice(0, lastBrace + 1) + ']'); } catch {}
   }
+  throw new Error(`Could not parse array: ${slice.slice(0, 200)}`);
 }
 
-// ─── Validation & Sanitisation ───────────────────────────────────────────────
+// ─── Validation ───────────────────────────────────────────────────────────────
 
-/**
- * Ensure each item has all required fields with sensible defaults.
- * Never throws — bad items get defaults rather than crashing the whole batch.
- */
 function sanitizeItems(items, rawItems) {
   return items.map((item, i) => {
     const raw = rawItems[i] || {};
     return {
-      name: String(item.name ?? raw.name ?? '(unknown)'),
-      nameEn: String(item.nameEn ?? item.name ?? raw.name ?? ''),
+      name:          String(item.name          ?? raw.name ?? '(unknown)'),
+      nameEn:        String(item.nameEn        ?? item.name ?? raw.name ?? ''),
       nameCanonical: String(item.nameCanonical ?? item.nameEn ?? item.name ?? raw.name ?? ''),
-      quantity: Number(item.quantity ?? raw.quantity ?? 1) || 1,
-      unit: VALID_UNITS.includes(item.unit) ? item.unit : (raw.unit || 'pc'),
-      vendorGuess: String(item.vendorGuess ?? raw.vendorGuess ?? ''),
-      matchedId: item.matchedId ?? null,
-      confidence: VALID_CONFIDENCE.includes(item.confidence) ? item.confidence : 'low',
+      quantity:      Number(item.quantity      ?? raw.quantity ?? 1) || 1,
+      unit:          VALID_UNITS.includes(item.unit) ? item.unit : (raw.unit || 'pc'),
+      vendorGuess:   String(item.vendorGuess   ?? raw.vendorGuess ?? ''),
+      matchedId:     item.matchedId ?? null,
+      confidence:    VALID_CONFIDENCE.includes(item.confidence) ? item.confidence : 'low',
     };
   });
 }
 
-// ─── Sleep helper ─────────────────────────────────────────────────────────────
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Fetch with a hard timeout — rejects with a clear error if exceeded */
-async function fetchWithTimeout(url, options, timeoutMs = 12000) {
+async function fetchWithTimeout(url, options, timeoutMs = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -247,9 +131,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 12000) {
     return res;
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
-    }
+    if (err.name === 'AbortError') throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
     throw err;
   }
 }
@@ -257,23 +139,26 @@ async function fetchWithTimeout(url, options, timeoutMs = 12000) {
 // ─── Step 1: Gemini Vision ────────────────────────────────────────────────────
 
 async function extractFromImage(base64, mimeType, geminiKey) {
-  const response = await fetch(`${GEMINI_ENDPOINT}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: EXTRACT_PROMPT },
-          { inline_data: { mime_type: mimeType, data: base64 } },
-        ],
-      }],
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 2048,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
+  const response = await fetchWithTimeout(
+    `${GEMINI_ENDPOINT}?key=${geminiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: EXTRACT_PROMPT },
+            { inline_data: { mime_type: mimeType, data: base64 } },
+          ],
+        }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json',
+        },
+      }),
+    }
+  );
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -282,159 +167,95 @@ async function extractFromImage(base64, mimeType, geminiKey) {
 
   const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  if (!text) throw new Error('Empty response from Gemini');
-
+  if (!text) throw new Error('Empty response from Gemini vision');
   return extractJSONArray(text);
 }
 
-// ─── Step 2: Llama Normalization (with retries) ───────────────────────────────
+// ─── Step 2: Gemini Text (translate + normalise + match) ─────────────────────
 
-async function normalizeItems(rawItems, existingProducts, openrouterKey) {
+async function normalizeItems(rawItems, existingProducts, geminiKey) {
   const prompt = buildNormalizePrompt(rawItems, existingProducts);
-  let lastError = null;
 
-  // We iterate over (model, attempt) pairs so provider errors advance the model,
-  // while transient errors (empty response, JSON parse) retry the same model once.
-  for (let modelIdx = 0; modelIdx < NORMALIZE_MODELS.length; modelIdx++) {
-    const useModel = NORMALIZE_MODELS[modelIdx];
-    const attemptsForModel = 1; // fail fast — graceful fallback handles the rest
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await sleep(RETRY_BASE_MS);
 
-    for (let attempt = 0; attempt < attemptsForModel; attempt++) {
-      if (modelIdx > 0 || attempt > 0) {
-        const delay = RETRY_BASE_MS * (modelIdx + attempt);
-        console.log(
-          `[parse-receipt] Step 2 — model ${modelIdx + 1}/${NORMALIZE_MODELS.length}` +
-          ` (${useModel}), attempt ${attempt + 1}, waiting ${delay}ms`
-        );
-        await sleep(delay);
-      }
-
-      let response;
-      try {
-        response = await fetchWithTimeout(OPENROUTER_ENDPOINT, {
+    let response;
+    try {
+      response = await fetchWithTimeout(
+        `${GEMINI_TEXT_ENDPOINT}?key=${geminiKey}`,
+        {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openrouterKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://lovebirds.vercel.app',
-            'X-Title': 'HIRT Household Tracker',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: useModel,
-            messages: [
-              { role: 'system', content: NORMALIZE_SYSTEM },
-              { role: 'user',   content: prompt },
-            ],
-            max_tokens: 2048,
-            temperature: 0,
-            top_p: 1,
-            response_format: { type: 'json_object' }, // force valid JSON output
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0,
+              maxOutputTokens: 2048,
+              responseMimeType: 'application/json',
+            },
           }),
-        });
-      } catch (networkErr) {
-        // Fetch-level failure (DNS, timeout) — try next model immediately
-        lastError = networkErr;
-        break; // break inner loop → advance modelIdx
-      }
+        }
+      );
+    } catch (err) {
+      if (attempt === 1) throw err;
+      continue;
+    }
 
-      // Provider error (503 overloaded, 429 rate-limit) → advance to next model
-      if (response.status === 503 || response.status === 429) {
-        const errBody = await response.json().catch(() => ({}));
-        const providerMsg = errBody?.error?.message || errBody?.error || `HTTP ${response.status}`;
-        lastError = new Error(`Provider error [${useModel}]: ${providerMsg}`);
-        console.warn(`[parse-receipt] ${lastError.message} — trying next model`);
-        break; // break inner loop → advance modelIdx
-      }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (attempt === 1) throw new Error(err?.error?.message || `Gemini text error ${response.status}`);
+      continue;
+    }
 
-      // Other HTTP errors (auth, bad request) → hard fail, no point retrying
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        throw new Error(errBody?.error?.message || `OpenRouter error ${response.status}`);
-      }
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) {
+      if (attempt === 1) throw new Error('Empty response from Gemini text');
+      continue;
+    }
 
-      const data = await response.json();
-      const text = data?.choices?.[0]?.message?.content || '';
+    try {
+      const parsed = extractItems(text);
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
 
-      if (!text) {
-        lastError = new Error(`Empty response from ${useModel}`);
-        continue; // retry same model
-      }
-
-      // Parse — use extractItems which handles the json_object wrapper
-      let parsed;
-      try {
-        parsed = extractItems(text);
-      } catch (parseErr) {
-        lastError = parseErr;
-        continue; // retry same model
-      }
-
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        lastError = new Error(`Step 2 returned empty array from ${useModel}. Raw: ${text.slice(0, 300)}`);
-        continue; // retry same model
-      }
-
-      // Reconcile: if model returned fewer items than input, pad with safe defaults
       const reconciled = rawItems.map((raw, i) => parsed[i] ?? {
-        name:          raw.name,
-        nameEn:        raw.name,
-        nameCanonical: raw.name,
-        quantity:      raw.quantity,
-        unit:          raw.unit,
-        vendorGuess:   raw.vendorGuess,
-        matchedId:     null,
-        confidence:    'low',
+        name: raw.name, nameEn: raw.name, nameCanonical: raw.name,
+        quantity: raw.quantity, unit: raw.unit,
+        vendorGuess: raw.vendorGuess, matchedId: null, confidence: 'low',
       });
 
       return sanitizeItems(reconciled, rawItems);
+    } catch (parseErr) {
+      if (attempt === 1) throw parseErr;
     }
   }
 
-  // All models exhausted
-  throw new Error(
-    `Step 2 normalization failed (tried all ${NORMALIZE_MODELS.length} models). ` +
-    `Last error: ${lastError?.message}`
-  );
+  throw new Error('Gemini text normalization failed after 2 attempts');
 }
 
 // ─── Graceful Fallback ────────────────────────────────────────────────────────
 
-/**
- * If Step 2 fails completely, return Step 1 raw items with minimal defaults
- * so the user still gets a reviewable list rather than a hard error.
- */
 function rawItemsAsFallback(rawItems) {
   return rawItems.map(item => ({
-    name: item.name,
-    nameEn: item.name,          // untranslated — user can edit
-    nameCanonical: item.name,
+    name: item.name, nameEn: item.name, nameCanonical: item.name,
     quantity: item.quantity,
     unit: VALID_UNITS.includes(item.unit) ? item.unit : 'pc',
     vendorGuess: item.vendorGuess || '',
-    matchedId: null,
-    confidence: 'low',
+    matchedId: null, confidence: 'low',
   }));
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const geminiKey     = process.env.GEMINI_API_KEY;
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
-
-  if (!geminiKey)     return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
-  if (!openrouterKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' });
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
 
   const { base64, mimeType, existingProducts = [] } = req.body;
-  if (!base64 || !mimeType) {
-    return res.status(400).json({ error: 'Missing base64 or mimeType' });
-  }
+  if (!base64 || !mimeType) return res.status(400).json({ error: 'Missing base64 or mimeType' });
 
-  // Step 1: vision extraction (no fallback — if Gemini fails, nothing to show)
   let rawItems;
   try {
     rawItems = await extractFromImage(base64, mimeType, geminiKey);
@@ -446,15 +267,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ items: [], warning: 'No items detected in image.' });
   }
 
-  // Step 2: normalise + translate + match (with graceful fallback)
   let items;
   let step2Warning = null;
   try {
-    items = await normalizeItems(rawItems, existingProducts, openrouterKey);
+    items = await normalizeItems(rawItems, existingProducts, geminiKey);
   } catch (e) {
-    console.error('[parse-receipt] Step 2 failed, using raw fallback:', e.message);
+    console.error('[parse-receipt] Step 2 failed:', e.message);
     items = rawItemsAsFallback(rawItems);
-    step2Warning = 'Translation service unavailable — showing raw receipt text. You can edit names before importing.';
+    step2Warning = 'Translation unavailable — showing raw receipt text. You can edit names before importing.';
   }
 
   return res.status(200).json({
