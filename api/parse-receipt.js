@@ -1,5 +1,5 @@
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'openrouter/free';
+const MODEL = 'qwen/qwen2.5-vl-32b-instruct:free';
 
 const PROMPT = `You are a household inventory assistant. Analyze this receipt or order document.
 
