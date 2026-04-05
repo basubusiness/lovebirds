@@ -1,20 +1,23 @@
 import { useState, useCallback } from 'react';
-import { useProducts }   from './hooks/useProducts';
-import { useImports }    from './hooks/useImports';
-import { VENDORS } from './constants';
-import { getStatus, uid } from './utils';
+import { useProducts }        from './hooks/useProducts';
+import { useImports }         from './hooks/useImports';
+import { useConsumptionLog }  from './hooks/useConsumptionLog';
+import { useVendorSchedules } from './hooks/useVendorSchedules';
+import { VENDORS }            from './constants';
+import { getStatus, uid }     from './utils';
 
-import AuthGate, { useAuth } from './components/AuthGate';
-import AccountModal  from './components/AccountModal';
-import Dashboard     from './components/Dashboard';
-import Inventory     from './components/Inventory';
-import Alerts        from './components/Alerts';
-import Vendors       from './components/Vendors';
-import ProductModal  from './components/ProductModal';
-import ReceiptModal  from './components/ReceiptModal';
-import ImportsModal  from './components/ImportsModal';
-import { ConsumeModal, RestockModal } from './components/QuickModals';
-import Toast         from './components/Toast';
+import AuthGate, { useAuth }  from './components/AuthGate';
+import AccountModal           from './components/AccountModal';
+import Dashboard              from './components/Dashboard';
+import Inventory              from './components/Inventory';
+import Alerts                 from './components/Alerts';
+import Vendors                from './components/Vendors';
+import ProductModal           from './components/ProductModal';
+import ReceiptModal           from './components/ReceiptModal';
+import ImportsModal           from './components/ImportsModal';
+import SettingsModal          from './components/SettingsModal';
+import { ConsumeModal, RestockModal, FinishedModal } from './components/QuickModals';
+import Toast                  from './components/Toast';
 
 import styles from './App.module.css';
 
@@ -25,24 +28,34 @@ const TABS = [
   { id: 'vendors',   label: 'Vendors'   },
 ];
 
-// ── Inner app (rendered only when authenticated) ─────────────────────────────
-
 function AppInner() {
   const { session }                           = useAuth();
   const [products, setProducts, loading]      = useProducts();
   const { imports, loading: importsLoading,
           saveImport, deleteImport,
           updateImport }                      = useImports();
-  const [tab,      setTab]                    = useState('dashboard');
-  const [modal,    setModal]                  = useState(null);
-  const [account,  setAccount]                = useState(false);
-  const [consume,  setConsume]                = useState(null);
-  const [restock,  setRestock]                = useState(null);
-  const [receipt,  setReceipt]                = useState(false);
-  const [history,  setHistory]                = useState(false);
-  const [toast,    setToast]                  = useState(null);
+  const { burnRates, appendLog }              = useConsumptionLog();
+  const { schedules, upsertSchedule }         = useVendorSchedules();
+
+  const [tab,      setTab]      = useState('dashboard');
+  const [modal,    setModal]    = useState(null);
+  const [account,  setAccount]  = useState(false);
+  const [consume,  setConsume]  = useState(null);
+  const [restock,  setRestock]  = useState(null);
+  const [finished, setFinished] = useState(null);
+  const [receipt,  setReceipt]  = useState(false);
+  const [history,  setHistory]  = useState(false);
+  const [settings, setSettings] = useState(false);
+  const [toast,    setToast]    = useState(null);
 
   const notify = msg => setToast(msg);
+
+  // Merge computed burn rates into products (EWMA from log overrides manual
+  // only when there's enough data — manual stays as fallback)
+  const productsWithBurnRates = products.map(p => ({
+    ...p,
+    burnRate: burnRates[p.id] ?? p.burnRate,
+  }));
 
   /* product CRUD */
   const saveProduct = useCallback((p) => {
@@ -61,42 +74,55 @@ function AppInner() {
     notify('Product removed');
   }, [setProducts]);
 
-  /* consumption / restock */
-  const logConsume = useCallback((qty) => {
-    setProducts(prev => prev.map(p =>
-      p.id === consume.id
-        ? { ...p, currentQty: parseFloat(Math.max(0, p.currentQty - qty).toFixed(2)) }
-        : p
+  /* consume — logs to DB, updates qty */
+  const logConsume = useCallback(async (qty) => {
+    const p = consume;
+    setProducts(prev => prev.map(x =>
+      x.id === p.id
+        ? { ...x, currentQty: parseFloat(Math.max(0, x.currentQty - qty).toFixed(2)) }
+        : x
     ));
-    notify(`Logged -${qty} ${consume.unit}`);
+    await appendLog(p.id, -qty, 'consume');
+    notify(`Logged −${qty} ${p.unit}`);
     setConsume(null);
-  }, [consume, setProducts]);
+  }, [consume, setProducts, appendLog]);
 
-  const logRestock = useCallback((qty) => {
-    setProducts(prev => prev.map(p =>
-      p.id === restock.id
-        ? { ...p, currentQty: parseFloat((p.currentQty + qty).toFixed(2)) }
-        : p
+  /* restock — logs to DB, updates qty */
+  const logRestock = useCallback(async (qty) => {
+    const p = restock;
+    setProducts(prev => prev.map(x =>
+      x.id === p.id
+        ? { ...x, currentQty: parseFloat((x.currentQty + qty).toFixed(2)) }
+        : x
     ));
-    notify(`Added +${qty} ${restock.unit}`);
+    await appendLog(p.id, qty, 'restock');
+    notify(`Added +${qty} ${p.unit}`);
     setRestock(null);
-  }, [restock, setProducts]);
+  }, [restock, setProducts, appendLog]);
 
-  /* receipt import — save to inventory AND record history */
+  /* finished — sets qty to 0, logs full delta, recalibrates burn rate */
+  const logFinished = useCallback(async (qty) => {
+    const p = finished;
+    setProducts(prev => prev.map(x =>
+      x.id === p.id ? { ...x, currentQty: 0 } : x
+    ));
+    await appendLog(p.id, -qty, 'finished');
+    notify(`${p.name} marked as finished`);
+    setFinished(null);
+  }, [finished, setProducts, appendLog]);
+
+  /* receipt import */
   const handleReceiptConfirm = useCallback(async (parsedItems) => {
-    let added = 0;
-    let updated = 0;
+    let added = 0, updated = 0;
     const historyItems = [];
 
-    // Snapshot for import record (build before mutating products state)
     parsedItems.forEach(item => {
-      const isNew = !item.matched;
       historyItems.push({
         product_id: item.matched?.id ?? null,
         name:       item.editName,
         qty:        item.editQty,
         unit:       item.editUnit,
-        is_new:     isNew,
+        is_new:     !item.matched,
       });
     });
 
@@ -130,8 +156,7 @@ function AppInner() {
       return next;
     });
 
-    // Persist import record asynchronously (non-blocking)
-    const vendor      = parsedItems[0]?.batchVendor ?? '';
+    const vendor       = parsedItems[0]?.batchVendor ?? '';
     const purchaseDate = parsedItems[0]?.batchDate ?? new Date().toISOString().slice(0, 10);
     saveImport({ vendor, purchaseDate, items: historyItems });
 
@@ -139,20 +164,18 @@ function AppInner() {
     notify(`Receipt imported: ${updated} updated, ${added} new item${added !== 1 ? 's' : ''}`);
   }, [setProducts, saveImport]);
 
-  const clearAll = useCallback(() => {
-    setProducts([]);
-  }, [setProducts]);
+  const clearAll = useCallback(() => setProducts([]), [setProducts]);
 
   const avatarUrl = session?.user?.user_metadata?.avatar_url;
   const initials  = (session?.user?.user_metadata?.full_name || session?.user?.email || '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
+  const alertCount = productsWithBurnRates.filter(p => getStatus(p) !== 'ok').length;
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div style={{ color: '#888', fontSize: '0.9rem' }}>Loading inventory…</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>
+        <div style={{ color:'#888', fontSize:'0.9rem' }}>Loading inventory…</div>
       </div>
     );
   }
@@ -192,18 +215,26 @@ function AppInner() {
       </header>
 
       <main className={styles.main}>
-        {tab === 'dashboard' && <Dashboard products={products} vendors={VENDORS} />}
+        {tab === 'dashboard' && (
+          <Dashboard
+            products={productsWithBurnRates}
+            vendors={VENDORS}
+            schedules={schedules}
+            onOpenSettings={() => setSettings(true)}
+          />
+        )}
         {tab === 'inventory' && (
           <Inventory
-            products={products}
+            products={productsWithBurnRates}
             onEdit={p => setModal(p)}
             onConsume={p => setConsume(p)}
             onRestock={p => setRestock(p)}
+            onFinished={p => setFinished(p)}
             onAdd={() => setModal({})}
           />
         )}
-        {tab === 'alerts'  && <Alerts   products={products} />}
-        {tab === 'vendors' && <Vendors  products={products} />}
+        {tab === 'alerts'  && <Alerts   products={productsWithBurnRates} />}
+        {tab === 'vendors' && <Vendors  products={productsWithBurnRates} />}
       </main>
 
       {modal !== null && (
@@ -220,9 +251,12 @@ function AppInner() {
       {restock && (
         <RestockModal product={restock} onSave={logRestock} onClose={() => setRestock(null)} />
       )}
+      {finished && (
+        <FinishedModal product={finished} onSave={logFinished} onClose={() => setFinished(null)} />
+      )}
       {receipt && (
         <ReceiptModal
-          products={products}
+          products={productsWithBurnRates}
           onConfirm={handleReceiptConfirm}
           onClose={() => setReceipt(false)}
         />
@@ -236,9 +270,16 @@ function AppInner() {
           onClose={() => setHistory(false)}
         />
       )}
+      {settings && (
+        <SettingsModal
+          schedules={schedules}
+          onSave={upsertSchedule}
+          onClose={() => setSettings(false)}
+        />
+      )}
       {account && (
         <AccountModal
-          products={products}
+          products={productsWithBurnRates}
           onClearAll={clearAll}
           onClose={() => setAccount(false)}
         />
@@ -248,8 +289,6 @@ function AppInner() {
     </div>
   );
 }
-
-// ── Root export — wraps everything in AuthGate ───────────────────────────────
 
 export default function App() {
   return (
