@@ -120,6 +120,8 @@ function AppInner() {
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
+
+  if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
         <div style={{ color: '#888', fontSize: '0.9rem' }}>Loading inventory…</div>
