@@ -43,7 +43,7 @@ const NORMALIZE_MODELS = [
 const NORMALIZE_MODEL          = NORMALIZE_MODELS[0];
 const NORMALIZE_MODEL_FALLBACK = NORMALIZE_MODELS[1];
 
-const RETRY_BASE_MS = 800; // ms between attempts; multiplied by (modelIdx + attempt)
+const RETRY_BASE_MS = 300; // short delay between model fallbacks
 
 const VALID_UNITS = ['pc', 'kg', 'g', 'L', 'ml', 'pack'];
 const VALID_CONFIDENCE = ['high', 'medium', 'low'];
@@ -237,6 +237,23 @@ function sanitizeItems(items, rawItems) {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+/** Fetch with a hard timeout — rejects with a clear error if exceeded */
+async function fetchWithTimeout(url, options, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
+    }
+    throw err;
+  }
+}
+
 // ─── Step 1: Gemini Vision ────────────────────────────────────────────────────
 
 async function extractFromImage(base64, mimeType, geminiKey) {
@@ -280,7 +297,7 @@ async function normalizeItems(rawItems, existingProducts, openrouterKey) {
   // while transient errors (empty response, JSON parse) retry the same model once.
   for (let modelIdx = 0; modelIdx < NORMALIZE_MODELS.length; modelIdx++) {
     const useModel = NORMALIZE_MODELS[modelIdx];
-    const attemptsForModel = modelIdx === 0 ? 2 : 1; // retry primary once, others once
+    const attemptsForModel = 1; // fail fast — graceful fallback handles the rest
 
     for (let attempt = 0; attempt < attemptsForModel; attempt++) {
       if (modelIdx > 0 || attempt > 0) {
@@ -294,7 +311,7 @@ async function normalizeItems(rawItems, existingProducts, openrouterKey) {
 
       let response;
       try {
-        response = await fetch(OPENROUTER_ENDPOINT, {
+        response = await fetchWithTimeout(OPENROUTER_ENDPOINT, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openrouterKey}`,
