@@ -34,9 +34,9 @@ const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 // Model chain: tried in order. On 503/429 we advance to the next model.
 // All are free-tier on OpenRouter; gemini-flash-8b has the highest availability.
 const NORMALIZE_MODELS = [
-  'google/gemini-flash-1.5-8b',            // primary: free, very fast, reliable
-  'mistralai/mistral-7b-instruct:free',    // fallback 1: consistently available
-  'meta-llama/llama-3.1-8b-instruct:free', // fallback 2: smaller queue wait
+  'google/gemini-2.0-flash-exp:free',          // primary: free, fast, great French→English
+  'mistralai/mistral-small-3.1-24b-instruct:free', // fallback 1: French company, great translation
+  'meta-llama/llama-3.1-8b-instruct:free',     // fallback 2: last resort
 ];
 
 // Keep these aliases so the rest of the file compiles unchanged
