@@ -1,24 +1,26 @@
 /**
  * aiParser.js
- * Two-step pipeline:
- * Step 1: Gemini 2.5 Flash (vision) extracts raw items from receipt image
- * Step 2: Llama 3.3 70B (free, text-only) normalizes, translates, matches inventory
+ * Sends receipt image to /api/parse-receipt and returns { items, warning? }
  */
 
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
+/**
+ * Returns { items: [...], warning?: string }
+ *   items   — array of normalised receipt items (always present, may be raw if Step 2 degraded)
+ *   warning — human-readable note if Step 2 fell back to raw mode
+ */
 export async function parseReceipt(file, existingProducts = []) {
   const base64   = await fileToBase64(file);
   const mimeType = file.type || 'image/jpeg';
 
-  // Pass existing products so Step 2 can match aliases
   const res = await fetch('/api/parse-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,9 +28,9 @@ export async function parseReceipt(file, existingProducts = []) {
       base64,
       mimeType,
       existingProducts: existingProducts.map(p => ({
-        id: p.id,
-        name: p.name,
-        unit: p.unit,
+        id:     p.id,
+        name:   p.name,
+        unit:   p.unit,
         vendor: p.vendor,
       })),
     }),
@@ -40,8 +42,13 @@ export async function parseReceipt(file, existingProducts = []) {
   }
 
   const data = await res.json();
-  if (!Array.isArray(data.items)) throw new Error('Unexpected response from server');
-  if (data.items.length === 0) throw new Error('No items found. Try a clearer photo.');
 
-  return data.items;
+  if (!Array.isArray(data.items)) throw new Error('Unexpected response from server');
+  if (data.items.length === 0)    throw new Error('No items found. Try a clearer photo.');
+
+  // Return both items and optional warning so ReceiptModal can show the banner
+  return {
+    items:   data.items,
+    warning: data.warning || null,
+  };
 }
