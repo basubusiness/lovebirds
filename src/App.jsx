@@ -4,6 +4,7 @@ import { VENDORS } from './constants';
 import { getStatus, uid } from './utils';
 
 import AuthGate, { useAuth } from './components/AuthGate';
+import AccountModal from './components/AccountModal';
 import Dashboard    from './components/Dashboard';
 import Inventory    from './components/Inventory';
 import Alerts       from './components/Alerts';
@@ -29,6 +30,7 @@ function AppInner() {
   const [products, setProducts, loading]    = useProducts();
   const [tab,      setTab]                  = useState('dashboard');
   const [modal,    setModal]                = useState(null);
+  const [account,  setAccount]              = useState(false);
   const [consume,  setConsume]              = useState(null);
   const [restock,  setRestock]              = useState(null);
   const [receipt,  setReceipt]              = useState(false);
@@ -109,9 +111,15 @@ function AppInner() {
     notify(`Receipt imported: ${updated} updated, ${added} new item${added !== 1 ? 's' : ''}`);
   }, [setProducts]);
 
-  const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
+  const clearAll = useCallback(() => {
+    setProducts([]);
+  }, [setProducts]);
 
-  if (loading) {
+  const avatarUrl = session?.user?.user_metadata?.avatar_url;
+  const initials  = (session?.user?.user_metadata?.full_name || session?.user?.email || '?')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  const alertCount = products.filter(p => getStatus(p) !== 'ok').length;
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
         <div style={{ color: '#888', fontSize: '0.9rem' }}>Loading inventory…</div>
@@ -141,13 +149,11 @@ function AppInner() {
           <button className={styles.iconBtn} onClick={() => setReceipt(true)}>
             Import receipt
           </button>
-          <button
-            className={styles.iconBtn}
-            onClick={signOut}
-            title={`Signed in as ${session?.user?.email}`}
-            style={{ opacity: 0.6 }}
-          >
-            Sign out
+          <button className={styles.avatarBtn} onClick={() => setAccount(true)} title="Account">
+            {avatarUrl
+              ? <img src={avatarUrl} alt="account" className={styles.avatarImg} referrerPolicy="no-referrer" />
+              : <span className={styles.avatarInitials}>{initials}</span>
+            }
           </button>
         </div>
       </header>
@@ -186,6 +192,14 @@ function AppInner() {
           products={products}
           onConfirm={handleReceiptConfirm}
           onClose={() => setReceipt(false)}
+        />
+      )}
+
+      {account && (
+        <AccountModal
+          products={products}
+          onClearAll={clearAll}
+          onClose={() => setAccount(false)}
         />
       )}
 

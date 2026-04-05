@@ -99,3 +99,34 @@
   .main   { padding: 1rem 0.75rem; }
   .navBtn { padding: 5px 10px; font-size: 11px; }
 }
+
+/* ── Avatar button ───────────────────────── */
+.avatarBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-medium);
+  background: var(--bg-secondary);
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.avatarBtn:hover { border-color: #1D9E75; }
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarInitials {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1D9E75;
+  line-height: 1;
+}
