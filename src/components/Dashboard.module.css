@@ -25,6 +25,7 @@
 .metricOk .metricLabel { color: #3B6D11; }
 .metricOk .metricValue { color: #1D9E75; }
 
+/* ── Card ── */
 .card {
   background: var(--bg-primary);
   border: 0.5px solid var(--border-light);
@@ -32,9 +33,133 @@
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
 }
-
 .cardTitle { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
 
+/* ── Forecast chart ── */
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chartEmpty {
+  text-align: center;
+  padding: 1.5rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.chartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.chartNote {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* ── Vendor schedule cards ── */
+.schedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.schedCard {
+  background: var(--bg-secondary);
+  border: 0.5px solid var(--border-light);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.schedCardAlert {
+  border-color: rgba(226, 75, 74, 0.3);
+  background: #fef9f9;
+}
+
+.schedTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.schedDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.schedName { font-size: 13px; font-weight: 600; flex: 1; }
+.schedBadge {
+  font-size: 10px;
+  background: #FCEBEB;
+  color: #A32D2D;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.schedMeta { font-size: 12px; color: var(--text-secondary); }
+.schedDate { font-size: 12px; color: var(--text-secondary); }
+.schedDate strong { color: var(--text-primary); }
+.schedDateMissing { font-size: 12px; color: var(--text-secondary); font-style: italic; }
+
+.schedActions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.schedBtn {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 0.5px solid #1D9E75;
+  background: #1D9E75;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.schedBtn:hover { background: #0F6E56; }
+
+.schedBtnSecondary {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-medium);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.schedBtnSecondary:hover { background: var(--bg-secondary); }
+
+.schedBtnGhost {
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-light);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.schedBtnGhost:hover { background: var(--bg-secondary); }
+
+/* ── Alerts ── */
 .alertRow {
   display: flex;
   align-items: flex-start;
@@ -45,7 +170,6 @@
   border-left: 3px solid transparent;
 }
 .alertRow:last-child { margin-bottom: 0; }
-
 .critical { border-left-color: #E24B4A; background: #FCEBEB; }
 .low      { border-left-color: #EF9F27; background: #FAEEDA; }
 
@@ -64,18 +188,3 @@
 .badge_ok       { background: #EAF3DE; color: #3B6D11; }
 .badge_low      { background: #FAEEDA; color: #854F0B; }
 .badge_critical { background: #FCEBEB; color: #A32D2D; }
-
-.vendorRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 0.5px solid var(--border-light);
-  font-size: 13px;
-}
-.vendorRow:last-child { border-bottom: none; }
-
-.vendorDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.vendorName { flex: 1; }
-.chip       { font-size: 11px; background: var(--bg-secondary); color: var(--text-secondary); padding: 2px 8px; border-radius: 20px; }
-.minOrder   { font-size: 11px; color: var(--text-secondary); }

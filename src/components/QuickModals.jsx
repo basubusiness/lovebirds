@@ -53,3 +53,25 @@ export function RestockModal({ product, onSave, onClose }) {
     />
   );
 }
+
+/**
+ * FinishedModal — marks a product as fully consumed ahead of schedule.
+ * Shows current qty so the user can confirm, then calls onSave(currentQty).
+ */
+export function FinishedModal({ product, onSave, onClose }) {
+  return (
+    <Modal title="Mark as finished" onClose={onClose} maxWidth={300}>
+      <p className={styles.productName}>{product.name}</p>
+      <p className={styles.finishedNote}>
+        This will set stock to 0 and record <strong>{product.currentQty} {product.unit}</strong> consumed.
+        The burn rate will be updated to reflect this earlier-than-expected finish.
+      </p>
+      <div className={styles.actions}>
+        <button onClick={onClose}>Cancel</button>
+        <button className={styles.dangerBtn} onClick={() => onSave(product.currentQty)}>
+          Mark finished
+        </button>
+      </div>
+    </Modal>
+  );
+}

@@ -20,3 +20,17 @@
   border-color: #1D9E75;
 }
 .primaryBtn:hover { background: #0F6E56; }
+
+.finishedNote {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.dangerBtn {
+  background: #E24B4A;
+  color: #fff;
+  border-color: #E24B4A;
+}
+.dangerBtn:hover { background: #A32D2D; }

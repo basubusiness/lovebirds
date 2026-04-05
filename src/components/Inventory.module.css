@@ -236,3 +236,75 @@
   .cardEmoji { font-size: 18px; }
   .cardName  { font-size: 12px; }
 }
+
+/* ── View toggle ─────────────────────────────────────────────── */
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 3px;
+}
+.viewBtn {
+  padding: 4px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.viewBtn:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+.viewBtnActive {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 0.5px solid var(--border-light);
+}
+
+/* ── Finished button ─────────────────────────────────────────── */
+.actFinished {
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+  font-size: 13px;
+}
+.actFinished:hover { background: #FAEEDA; color: #854F0B; }
+
+/* ── Split badge (overall view) ──────────────────────────────── */
+.splitBadge {
+  font-size: 10px;
+  background: #EAF3DE;
+  color: #3B6D11;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+/* ── Sub-entries (merged card, multi-vendor) ─────────────────── */
+.subEntries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--border-light);
+}
+.subEntry {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.subDot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.subName { flex: 1; color: var(--text-secondary); }
+.subQty  { color: var(--text-primary); font-weight: 500; min-width: 40px; text-align: right; }
+.actBtnSm {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 0.5px solid var(--border-light);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.actBtnSm:hover { background: var(--bg-secondary); }
