@@ -17,8 +17,37 @@ Rules:
 - If unit is ambiguous, use "pc"
 - Skip non-product lines (discounts, taxes, subtotals, loyalty points)
 - If you cannot read the receipt clearly, return an empty array []
+- IMPORTANT: Your entire response must be valid JSON only. No text before or after the array.
 
 Return only the JSON array, nothing else.`;
+
+function extractJSON(text) {
+  // Strip markdown fences
+  let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  // Find the first [ and last ] to extract just the array
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']');
+  if (start === -1 || end === -1) throw new Error('No JSON array found in response');
+
+  cleaned = cleaned.slice(start, end + 1);
+
+  // Remove any trailing commas before ] or } (common AI mistake)
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+  // Truncate any items that got cut off mid-stream — find last complete object
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Try to recover by finding the last complete object
+    const lastComplete = cleaned.lastIndexOf('},');
+    if (lastComplete > 0) {
+      const recovered = cleaned.slice(0, lastComplete + 1) + ']';
+      return JSON.parse(recovered);
+    }
+    throw new Error('Could not parse AI response');
+  }
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -60,7 +89,7 @@ module.exports = async function handler(req, res) {
             ],
           },
         ],
-        max_tokens: 1024,
+        max_tokens: 2048,
         temperature: 0.1,
       }),
     });
@@ -75,12 +104,13 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content || '';
 
-    const clean = text.replace(/```json|```/g, '').trim();
-    const items = JSON.parse(clean);
+    if (!text) {
+      return res.status(500).json({ error: 'Empty response from AI model' });
+    }
 
-    if (!Array.isArray(items)) throw new Error('Unexpected response format');
-
+    const items = extractJSON(text);
     return res.status(200).json({ items });
+
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Failed to parse receipt' });
   }
