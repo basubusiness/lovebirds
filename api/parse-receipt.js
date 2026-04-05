@@ -77,15 +77,34 @@ function extractItems(text) {
 
 function extractJSONArray(text) {
   const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  // Direct parse
   try { const p = JSON.parse(cleaned); if (Array.isArray(p)) return p; } catch {}
+  // Try unwrapping {"items":[...]} in case Gemini wraps it
+  try {
+    const p = JSON.parse(cleaned);
+    if (p?.items && Array.isArray(p.items)) return p.items;
+  } catch {}
+  // Find outermost array
   const start = cleaned.indexOf('[');
   const end   = cleaned.lastIndexOf(']');
-  if (start === -1) throw new Error(`No array: ${cleaned.slice(0, 200)}`);
+  if (start === -1) {
+    // No array found — maybe Gemini returned an object, try extracting items
+    const os = cleaned.indexOf('{');
+    const oe = cleaned.lastIndexOf('}');
+    if (os !== -1 && oe !== -1) {
+      try {
+        const p = JSON.parse(cleaned.slice(os, oe + 1));
+        if (p?.items && Array.isArray(p.items)) return p.items;
+      } catch {}
+    }
+    throw new Error(`No array: ${cleaned.slice(0, 300)}`);
+  }
   const slice = cleaned.slice(start, end + 1).replace(/,\s*([}\]])/g, '$1');
   try { return JSON.parse(slice); } catch {}
+  // Recover truncated array
   const last = slice.lastIndexOf('},');
   if (last > 0) { try { return JSON.parse(slice.slice(0, last + 1) + ']'); } catch {} }
-  throw new Error(`Parse failed: ${slice.slice(0, 200)}`);
+  throw new Error(`Parse failed: ${slice.slice(0, 300)}`);
 }
 
 // ─── Expand short keys → full field names ────────────────────────────────────
@@ -151,8 +170,15 @@ async function extractFromImage(base64, mimeType, geminiKey) {
   }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const reason = data?.candidates?.[0]?.finishReason;
+  if (reason && reason !== 'STOP') console.warn('[parse-receipt] Step 1 finishReason:', reason);
   if (!text) throw new Error('Empty vision response');
-  return extractJSONArray(text);
+  try {
+    return extractJSONArray(text);
+  } catch (e) {
+    console.error('[parse-receipt] Step 1 parse error. Raw text:', text.slice(0, 500));
+    throw e;
+  }
 }
 
 // ─── Step 2: Translate + Normalise + Match ────────────────────────────────────
