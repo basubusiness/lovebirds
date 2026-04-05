@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useProducts }   from './hooks/useProducts';
-import { VENDORS, SEED_PRODUCTS } from './constants';
+import { VENDORS } from './constants';
 import { getStatus, uid } from './utils';
 
 import AuthGate, { useAuth } from './components/AuthGate';
