@@ -139,6 +139,8 @@ function extractItems(text) {
 
   throw new Error(`Unexpected response shape: ${text.slice(0, 300)}`);
 }
+
+function extractJSONLines(text) {
   const results = [];
   // Strip optional array brackets and markdown fences
   const cleaned = text
