@@ -1,7 +1,8 @@
 /**
  * aiParser.js
- * Calls the Vercel serverless proxy at /api/parse-receipt
- * which securely holds the Gemini API key server-side.
+ * Two-step pipeline:
+ * Step 1: Gemini 2.5 Flash (vision) extracts raw items from receipt image
+ * Step 2: Llama 3.3 70B (free, text-only) normalizes, translates, matches inventory
  */
 
 async function fileToBase64(file) {
@@ -13,14 +14,24 @@ async function fileToBase64(file) {
   });
 }
 
-export async function parseReceipt(file) {
+export async function parseReceipt(file, existingProducts = []) {
   const base64   = await fileToBase64(file);
   const mimeType = file.type || 'image/jpeg';
 
+  // Pass existing products so Step 2 can match aliases
   const res = await fetch('/api/parse-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ base64, mimeType }),
+    body: JSON.stringify({
+      base64,
+      mimeType,
+      existingProducts: existingProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        unit: p.unit,
+        vendor: p.vendor,
+      })),
+    }),
   });
 
   if (!res.ok) {
