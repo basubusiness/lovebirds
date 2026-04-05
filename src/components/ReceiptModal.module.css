@@ -198,3 +198,9 @@
   background: var(--bg-primary);
   width: 100%;
 }
+
+/* ── Match score ─────────────────────────────────────────────── */
+.matchScore {
+  opacity: 0.6;
+  font-size: 9px;
+}

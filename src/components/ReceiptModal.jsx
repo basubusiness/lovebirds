@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import Modal from './Modal';
 import { parseReceipt } from '../services/aiParser';
 import { UNITS, VENDORS } from '../constants';
+import { enrichWithMatches } from '../utils/matcher';
 import styles from './ReceiptModal.module.css';
 
 const STEPS = { upload: 'upload', parsing: 'parsing', confirm: 'confirm' };
@@ -58,26 +59,27 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
         setStep(STEPS.upload);
         return;
       }
-      const enriched = parsed.map(item => {
-        const match = item.matchedId ? products.find(p => p.id === item.matchedId) : null;
-        if (!batchVendor && item.vendorGuess) {
-          const guessed = VENDORS.find(v =>
-            v.name.toLowerCase().includes(item.vendorGuess.toLowerCase()) ||
-            item.vendorGuess.toLowerCase().includes(v.name.toLowerCase())
-          );
-          if (guessed) setBatchVendor(guessed.id);
-        }
-        return {
-          ...item,
-          matched:      match || null,
-          selected:     true,
-          editName:     item.nameCanonical || item.name,
-          editNameOrig: item.name,
-          editNameEn:   item.nameEn || '',
-          editQty:      item.quantity,
-          editUnit:     item.unit,
-        };
-      });
+      // Enrich with client-side fuzzy matching (works even if Step 2 matching failed)
+      const matched = enrichWithMatches(parsed, products);
+
+      const enriched = matched.map(item => ({
+        ...item,
+        selected:     true,
+        editName:     item.nameCanonical || item.name,
+        editNameOrig: item.name,
+        editNameEn:   item.nameEn || '',
+        editQty:      item.quantity,
+        editUnit:     item.unit,
+      }));
+      // Auto-detect store from first item's vendorGuess
+      if (!batchVendor && parsed[0]?.vendorGuess) {
+        const guessed = VENDORS.find(v =>
+          v.name.toLowerCase().includes(parsed[0].vendorGuess.toLowerCase()) ||
+          parsed[0].vendorGuess.toLowerCase().includes(v.name.toLowerCase())
+        );
+        if (guessed) setBatchVendor(guessed.id);
+      }
+
       setItems(enriched);
       if (w) setWarning(w);
       setStep(STEPS.confirm);
@@ -245,7 +247,12 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
                       {UNITS.map(u => <option key={u}>{u}</option>)}
                     </select>
                     {item.matched ? (
-                      <span className={styles.matchBadge}>↔ {item.matched.name}</span>
+                      <span className={styles.matchBadge}>
+                        ↔ {item.matched.name}
+                        {item.matchScore < 1 && (
+                          <span className={styles.matchScore}> {Math.round(item.matchScore * 100)}%</span>
+                        )}
+                      </span>
                     ) : (
                       <span className={styles.newBadge}>new item</span>
                     )}
