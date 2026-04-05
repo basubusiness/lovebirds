@@ -34,9 +34,9 @@ const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 // Model chain: tried in order. On 503/429 we advance to the next model.
 // All are free-tier on OpenRouter; gemini-flash-8b has the highest availability.
 const NORMALIZE_MODELS = [
-  'google/gemini-2.0-flash-exp:free',          // primary: free, fast, great French→English
-  'mistralai/mistral-small-3.1-24b-instruct:free', // fallback 1: French company, great translation
-  'meta-llama/llama-3.1-8b-instruct:free',     // fallback 2: last resort
+  'openrouter/auto',                           // primary: auto-routes to best available free model
+  'google/gemini-2.0-flash-exp:free',          // fallback 1: reliable, great French→English
+  'mistralai/mistral-small-3.1-24b-instruct:free', // fallback 2: French company, strong translation
 ];
 
 // Keep these aliases so the rest of the file compiles unchanged
@@ -68,7 +68,8 @@ Rules:
 // ─── Step 2 Prompt ───────────────────────────────────────────────────────────
 
 const NORMALIZE_SYSTEM = `You are a JSON-only API. You never output prose, markdown, or explanation.
-Every response must be a raw JSON array starting with [ and ending with ].
+Your response must be a valid JSON object with a single key "items" containing an array.
+Example: {"items": [...]}
 You process household grocery receipts for a family in Luxembourg.`;
 
 function buildNormalizePrompt(rawItems, existingProducts) {
@@ -88,9 +89,9 @@ EXISTING INVENTORY (for matching):
 ${productList}
 
 OUTPUT RULES — extremely important:
-1. Return a JSON array: one object per item, one object per line.
+1. Return a JSON object with a single key "items" containing an array of objects.
 2. No markdown. No backticks. No explanation. Raw JSON only.
-3. Each object must have EXACTLY these fields:
+3. Each object in the array must have EXACTLY these fields:
    - "name"          : original name string (unchanged)
    - "nameEn"        : English translation (short, clear)
    - "nameCanonical" : clean display name e.g. "Whole Milk 1L" not "LAIT ENTIER UHT 1L COLIS"
@@ -98,24 +99,46 @@ OUTPUT RULES — extremely important:
    - "unit"          : one of: pc kg g L ml pack
    - "vendorGuess"   : store name string (unchanged)
    - "matchedId"     : id string from EXISTING INVENTORY if same product, else null
-   - "confidence"    : "high" | "medium" | "low" (match confidence if matched, else translation confidence)
+   - "confidence"    : "high" | "medium" | "low"
 
 Example of correct output for 2 items:
-[
-{"name":"LAIT ENTIER 1L","nameEn":"Whole Milk","nameCanonical":"Whole Milk 1L","quantity":2,"unit":"L","vendorGuess":"Cactus","matchedId":null,"confidence":"high"},
-{"name":"DISHWASHER TABS 30PC","nameEn":"Dishwasher Tablets","nameCanonical":"Dishwasher Tabs 30pc","quantity":1,"unit":"pack","vendorGuess":"Cactus","matchedId":"p3","confidence":"high"}
-]
+{"items": [
+  {"name":"LAIT ENTIER 1L","nameEn":"Whole Milk","nameCanonical":"Whole Milk 1L","quantity":2,"unit":"L","vendorGuess":"Cactus","matchedId":null,"confidence":"high"},
+  {"name":"DISHWASHER TABS 30PC","nameEn":"Dishwasher Tablets","nameCanonical":"Dishwasher Tabs 30pc","quantity":1,"unit":"pack","vendorGuess":"Cactus","matchedId":"p3","confidence":"high"}
+]}
 
-Now process the INPUT ITEMS above. Output only the JSON array, nothing else.`;
+Now process the INPUT ITEMS above. Output only the JSON object, nothing else.`;
 }
 
 // ─── JSON Extraction ─────────────────────────────────────────────────────────
 
 /**
- * Primary extractor: parse JSONL-style (one object per line inside an array).
- * Collects every line that is a valid JSON object, so partial responses work.
+ * Extracts the items array from the response.
+ * With json_object mode the model returns {"items": [...]}
+ * Falls back to treating the whole response as an array for backwards compat.
  */
-function extractJSONLines(text) {
+function extractItems(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text.trim());
+  } catch {
+    // Try cleaning markdown fences
+    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // Last resort: try the JSONL line-by-line approach
+      return extractJSONLines(text);
+    }
+  }
+
+  // Handle {"items": [...]} wrapper
+  if (parsed && Array.isArray(parsed.items)) return parsed.items;
+  // Handle bare array fallback
+  if (Array.isArray(parsed)) return parsed;
+
+  throw new Error(`Unexpected response shape: ${text.slice(0, 300)}`);
+}
   const results = [];
   // Strip optional array brackets and markdown fences
   const cleaned = text
@@ -286,6 +309,7 @@ async function normalizeItems(rawItems, existingProducts, openrouterKey) {
             max_tokens: 2048,
             temperature: 0,
             top_p: 1,
+            response_format: { type: 'json_object' }, // force valid JSON output
           }),
         });
       } catch (networkErr) {
@@ -317,10 +341,10 @@ async function normalizeItems(rawItems, existingProducts, openrouterKey) {
         continue; // retry same model
       }
 
-      // Parse — try JSONL first (recovers partial responses), then standard array
+      // Parse — use extractItems which handles the json_object wrapper
       let parsed;
       try {
-        parsed = extractJSONLines(text);
+        parsed = extractItems(text);
       } catch (parseErr) {
         lastError = parseErr;
         continue; // retry same model
