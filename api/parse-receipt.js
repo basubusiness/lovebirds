@@ -209,6 +209,12 @@ async function normalizeItems(rawItems, existingProducts, geminiKey) {
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    console.log(`[parse-receipt] Step 2 attempt ${attempt} response status:`, response.status);
+    console.log(`[parse-receipt] Step 2 raw response text:`, text.slice(0, 500));
+    console.log(`[parse-receipt] Step 2 finish reason:`, data?.candidates?.[0]?.finishReason);
+    console.log(`[parse-receipt] Step 2 full candidate:`, JSON.stringify(data?.candidates?.[0]).slice(0, 300));
+    
     if (!text) {
       if (attempt === 1) throw new Error('Empty response from Gemini text');
       continue;
