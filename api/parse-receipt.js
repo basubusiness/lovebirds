@@ -1,5 +1,5 @@
-const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'qwen/qwen3.6-plus:free';
+const GEMINI_ENDPOINT =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
 
 const PROMPT = `You are a household inventory assistant. Analyze this receipt or order document.
 
@@ -22,28 +22,18 @@ Rules:
 Return only the JSON array, nothing else.`;
 
 function extractJSON(text) {
-  // Strip markdown fences
   let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-  // Find the first [ and last ] to extract just the array
   const start = cleaned.indexOf('[');
   const end = cleaned.lastIndexOf(']');
   if (start === -1 || end === -1) throw new Error('No JSON array found in response');
-
   cleaned = cleaned.slice(start, end + 1);
-
-  // Remove any trailing commas before ] or } (common AI mistake)
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-
-  // Truncate any items that got cut off mid-stream — find last complete object
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Try to recover by finding the last complete object
     const lastComplete = cleaned.lastIndexOf('},');
     if (lastComplete > 0) {
-      const recovered = cleaned.slice(0, lastComplete + 1) + ']';
-      return JSON.parse(recovered);
+      return JSON.parse(cleaned.slice(0, lastComplete + 1) + ']');
     }
     throw new Error('Could not parse AI response');
   }
@@ -54,7 +44,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured on server' });
   }
@@ -65,48 +55,32 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(OPENROUTER_ENDPOINT, {
+    const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://lovebirds.vercel.app',
-        'X-Title': 'HIRT Household Tracker',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL,
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
-              { type: 'text', text: PROMPT },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64}`,
-                },
-              },
+            parts: [
+              { text: PROMPT },
+              { inline_data: { mime_type: mimeType, data: base64 } },
             ],
           },
         ],
-        max_tokens: 2048,
-        temperature: 0.1,
+        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
       }),
     });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       return res.status(response.status).json({
-        error: err?.error?.message || `OpenRouter error ${response.status}`,
+        error: err?.error?.message || `Gemini error ${response.status}`,
       });
     }
 
     const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || '';
-
-    if (!text) {
-      return res.status(500).json({ error: 'Empty response from AI model' });
-    }
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) return res.status(500).json({ error: 'Empty response from Gemini' });
 
     const items = extractJSON(text);
     return res.status(200).json({ items });
