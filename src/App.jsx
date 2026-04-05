@@ -1,18 +1,20 @@
 import { useState, useCallback } from 'react';
 import { useProducts }   from './hooks/useProducts';
+import { useImports }    from './hooks/useImports';
 import { VENDORS } from './constants';
 import { getStatus, uid } from './utils';
 
 import AuthGate, { useAuth } from './components/AuthGate';
-import AccountModal from './components/AccountModal';
-import Dashboard    from './components/Dashboard';
-import Inventory    from './components/Inventory';
-import Alerts       from './components/Alerts';
-import Vendors      from './components/Vendors';
-import ProductModal from './components/ProductModal';
-import ReceiptModal from './components/ReceiptModal';
+import AccountModal  from './components/AccountModal';
+import Dashboard     from './components/Dashboard';
+import Inventory     from './components/Inventory';
+import Alerts        from './components/Alerts';
+import Vendors       from './components/Vendors';
+import ProductModal  from './components/ProductModal';
+import ReceiptModal  from './components/ReceiptModal';
+import ImportsModal  from './components/ImportsModal';
 import { ConsumeModal, RestockModal } from './components/QuickModals';
-import Toast        from './components/Toast';
+import Toast         from './components/Toast';
 
 import styles from './App.module.css';
 
@@ -26,15 +28,19 @@ const TABS = [
 // ── Inner app (rendered only when authenticated) ─────────────────────────────
 
 function AppInner() {
-  const { session }                         = useAuth();
-  const [products, setProducts, loading]    = useProducts();
-  const [tab,      setTab]                  = useState('dashboard');
-  const [modal,    setModal]                = useState(null);
-  const [account,  setAccount]              = useState(false);
-  const [consume,  setConsume]              = useState(null);
-  const [restock,  setRestock]              = useState(null);
-  const [receipt,  setReceipt]              = useState(false);
-  const [toast,    setToast]                = useState(null);
+  const { session }                           = useAuth();
+  const [products, setProducts, loading]      = useProducts();
+  const { imports, loading: importsLoading,
+          saveImport, deleteImport,
+          updateImport }                      = useImports();
+  const [tab,      setTab]                    = useState('dashboard');
+  const [modal,    setModal]                  = useState(null);
+  const [account,  setAccount]                = useState(false);
+  const [consume,  setConsume]                = useState(null);
+  const [restock,  setRestock]                = useState(null);
+  const [receipt,  setReceipt]                = useState(false);
+  const [history,  setHistory]                = useState(false);
+  const [toast,    setToast]                  = useState(null);
 
   const notify = msg => setToast(msg);
 
@@ -76,9 +82,24 @@ function AppInner() {
     setRestock(null);
   }, [restock, setProducts]);
 
-  /* receipt import */
-  const handleReceiptConfirm = useCallback((parsedItems) => {
-    let added = 0, updated = 0;
+  /* receipt import — save to inventory AND record history */
+  const handleReceiptConfirm = useCallback(async (parsedItems) => {
+    let added = 0;
+    let updated = 0;
+    const historyItems = [];
+
+    // Snapshot for import record (build before mutating products state)
+    parsedItems.forEach(item => {
+      const isNew = !item.matched;
+      historyItems.push({
+        product_id: item.matched?.id ?? null,
+        name:       item.editName,
+        qty:        item.editQty,
+        unit:       item.editUnit,
+        is_new:     isNew,
+      });
+    });
+
     setProducts(prev => {
       let next = [...prev];
       parsedItems.forEach(item => {
@@ -101,16 +122,22 @@ function AppInner() {
             currentQty: item.editQty,
             vendor:     item.batchVendor || 'cactus',
             burnRate:   0,
-            note:       item.batchDate ? `Purchased ${item.batchDate}` : '',
+            note:       '',
           });
           added++;
         }
       });
       return next;
     });
+
+    // Persist import record asynchronously (non-blocking)
+    const vendor      = parsedItems[0]?.batchVendor ?? '';
+    const purchaseDate = parsedItems[0]?.batchDate ?? new Date().toISOString().slice(0, 10);
+    saveImport({ vendor, purchaseDate, items: historyItems });
+
     setReceipt(false);
     notify(`Receipt imported: ${updated} updated, ${added} new item${added !== 1 ? 's' : ''}`);
-  }, [setProducts]);
+  }, [setProducts, saveImport]);
 
   const clearAll = useCallback(() => {
     setProducts([]);
@@ -149,6 +176,9 @@ function AppInner() {
           ))}
         </nav>
         <div className={styles.headerActions}>
+          <button className={styles.iconBtn} onClick={() => setHistory(true)}>
+            History{imports.length > 0 && <span className={styles.historyCount}> ({imports.length})</span>}
+          </button>
           <button className={styles.iconBtn} onClick={() => setReceipt(true)}>
             Import receipt
           </button>
@@ -197,7 +227,15 @@ function AppInner() {
           onClose={() => setReceipt(false)}
         />
       )}
-
+      {history && (
+        <ImportsModal
+          imports={imports}
+          loading={importsLoading}
+          onDelete={deleteImport}
+          onUpdate={updateImport}
+          onClose={() => setHistory(false)}
+        />
+      )}
       {account && (
         <AccountModal
           products={products}
