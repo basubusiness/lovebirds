@@ -124,9 +124,8 @@ function MergedCard({ name, entries, catIcon, onEdit, onConsume, onRestock, onFi
 
 function SubCategoryBlock({ subCat, products, overallView, onEdit, onConsume, onRestock, onFinished }) {
   const [open, setOpen] = useState(true);
-  if (products.length === 0) return null;
-
   // In overall view, merge products with same name
+  // useMemo must be called before any early return (Rules of Hooks)
   const displayItems = useMemo(() => {
     if (!overallView) return null;
     const groups = {};
@@ -137,6 +136,8 @@ function SubCategoryBlock({ subCat, products, overallView, onEdit, onConsume, on
     }
     return Object.values(groups);
   }, [products, overallView]);
+
+  if (products.length === 0) return null;
 
   return (
     <div className={styles.subBlock}>
