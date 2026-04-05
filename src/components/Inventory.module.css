@@ -97,3 +97,60 @@
 
 .actionRestock { color: #1D9E75; border-color: rgba(29,158,117,0.4); }
 .actionRestock:hover { background: #EAF3DE; }
+
+/* ── Category sections ───────────────────────────────────────── */
+.categorySection {
+  margin-bottom: 1rem;
+  background: var(--bg-primary);
+  border: 0.5px solid var(--border-light);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.catHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: none;
+  border-bottom: 0.5px solid var(--border-light);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+.catHeader:hover { background: #eee; }
+
+.catIcon  { font-size: 16px; }
+.catName  { flex: 1; }
+.catCount { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
+.catChevron { font-size: 11px; color: var(--text-secondary); }
+
+/* ── Sub-category rows ───────────────────────────────────────── */
+.subCatRow td { padding: 0; background: var(--bg-secondary); }
+
+.subCatToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 14px 6px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.subCatToggle:hover { color: var(--text-primary); }
+
+.subCatChevron { font-size: 9px; }
+.subCatName   { font-weight: 500; flex: 1; }
+.subCatCount  {
+  background: var(--bg-tertiary);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+}
