@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { VENDORS } from '../constants';
 import { getStatus, daysLeft, stockPct, barColor, vendorOf } from '../utils';
 import { useCategories } from '../hooks/useCategories';
 import styles from './Inventory.module.css';
