@@ -161,7 +161,7 @@ async function extractFromImage(base64, mimeType, geminiKey) {
       { text: EXTRACT_PROMPT },
       { inline_data: { mime_type: mimeType, data: base64 } },
     ]}],
-    generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: 'application/json' },
+    generationConfig: { temperature: 0, maxOutputTokens: 4096, responseMimeType: 'application/json' },
   });
 
   if (!res.ok) {
@@ -171,7 +171,19 @@ async function extractFromImage(base64, mimeType, geminiKey) {
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   const reason = data?.candidates?.[0]?.finishReason;
-  if (reason && reason !== 'STOP') console.warn('[parse-receipt] Step 1 finishReason:', reason);
+  if (reason === 'MAX_TOKENS') {
+    console.warn('[parse-receipt] Step 1 MAX_TOKENS — attempting partial recovery');
+    try { return extractJSONArray(text); } catch {}
+    // Last resort: recover complete objects line by line
+    const items = [];
+    for (const line of text.split('\n')) {
+      const t = line.trim().replace(/,$/, '');
+      if (t.startsWith('{') && t.endsWith('}')) {
+        try { items.push(JSON.parse(t)); } catch {}
+      }
+    }
+    if (items.length > 0) return items;
+  }
   if (!text) throw new Error('Empty vision response');
   try {
     return extractJSONArray(text);
