@@ -3,15 +3,14 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { VENDORS, SEED_PRODUCTS } from './constants';
 import { getStatus, uid } from './utils';
 
-import Dashboard     from './components/Dashboard';
-import Inventory     from './components/Inventory';
-import Alerts        from './components/Alerts';
-import Vendors       from './components/Vendors';
-import ProductModal  from './components/ProductModal';
-import ReceiptModal  from './components/ReceiptModal';
-import SettingsModal from './components/SettingsModal';
+import Dashboard    from './components/Dashboard';
+import Inventory    from './components/Inventory';
+import Alerts       from './components/Alerts';
+import Vendors      from './components/Vendors';
+import ProductModal from './components/ProductModal';
+import ReceiptModal from './components/ReceiptModal';
 import { ConsumeModal, RestockModal } from './components/QuickModals';
-import Toast         from './components/Toast';
+import Toast        from './components/Toast';
 
 import styles from './App.module.css';
 
@@ -23,15 +22,13 @@ const TABS = [
 ];
 
 export default function App() {
-  const [products, setProducts]   = useLocalStorage('hirt_products', SEED_PRODUCTS);
-  const [apiKey,   setApiKey]     = useLocalStorage('hirt_gemini_key', '');
-  const [tab,      setTab]        = useState('dashboard');
-  const [modal,    setModal]      = useState(null);
-  const [consume,  setConsume]    = useState(null);
-  const [restock,  setRestock]    = useState(null);
-  const [receipt,  setReceipt]    = useState(false);
-  const [settings, setSettings]   = useState(false);
-  const [toast,    setToast]      = useState(null);
+  const [products, setProducts] = useLocalStorage('hirt_products', SEED_PRODUCTS);
+  const [tab,      setTab]      = useState('dashboard');
+  const [modal,    setModal]    = useState(null);
+  const [consume,  setConsume]  = useState(null);
+  const [restock,  setRestock]  = useState(null);
+  const [receipt,  setReceipt]  = useState(false);
+  const [toast,    setToast]    = useState(null);
 
   const notify = msg => setToast(msg);
 
@@ -129,11 +126,8 @@ export default function App() {
           ))}
         </nav>
         <div className={styles.headerActions}>
-          <button className={styles.iconBtn} onClick={() => setReceipt(true)} title="Import receipt">
-            Import
-          </button>
-          <button className={styles.iconBtn} onClick={() => setSettings(true)} title="Settings">
-            Settings
+          <button className={styles.iconBtn} onClick={() => setReceipt(true)}>
+            Import receipt
           </button>
         </div>
       </header>
@@ -170,16 +164,8 @@ export default function App() {
       {receipt && (
         <ReceiptModal
           products={products}
-          apiKey={apiKey}
           onConfirm={handleReceiptConfirm}
           onClose={() => setReceipt(false)}
-        />
-      )}
-      {settings && (
-        <SettingsModal
-          apiKey={apiKey}
-          onSave={setApiKey}
-          onClose={() => setSettings(false)}
         />
       )}
 
