@@ -154,3 +154,15 @@
   font-style: normal;
 }
 .nameHint em { color: #1D9E75; font-style: normal; }
+
+/* ── Warning banner (Step 2 degraded mode) ── */
+.warningBanner {
+  background: #fff8e1;
+  border: 1px solid #EF9F27;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.8rem;
+  color: #7a5200;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
