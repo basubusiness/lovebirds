@@ -1,86 +1,122 @@
 /**
  * aiParser.js
- * Sends receipt image to /api/parse-receipt and returns { items, warning? }
- * Compresses image before sending to stay within Vercel's 4.5MB body limit.
+ * Sends receipt image/PDF to /api/parse-receipt and returns { items, warning? }
+ * - Images: compressed to max 1600x2000 at 85% JPEG quality
+ * - PDFs: first page rendered to canvas via PDF.js, then compressed as JPEG
  */
 
-const MAX_WIDTH  = 1600;  // px — enough for Gemini to read text clearly
-const MAX_HEIGHT = 2000;  // px
-const QUALITY    = 0.85;  // JPEG quality
+const MAX_WIDTH  = 1600;
+const MAX_HEIGHT = 2000;
+const QUALITY    = 0.85;
+const PDFJS_CDN  = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-/**
- * Compress and resize an image file using a canvas, then return base64.
- * Falls back to raw base64 if canvas is unavailable (e.g. PDF).
- */
-async function compressImage(file) {
-  // Only compress images — pass PDFs through as-is
-  if (!file.type.startsWith('image/')) {
-    return fileToBase64(file);
+// ── PDF.js loader (lazy, cached) ─────────────────────────────────────────────
+
+let pdfJsLoaded = false;
+
+async function loadPdfJs() {
+  if (pdfJsLoaded || window.pdfjsLib) { pdfJsLoaded = true; return; }
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = PDFJS_CDN;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Failed to load PDF.js'));
+    document.head.appendChild(script);
+  });
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  pdfJsLoaded = true;
+}
+
+// ── PDF → JPEG base64 ────────────────────────────────────────────────────────
+
+async function pdfToBase64(file) {
+  await loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1); // first page only
+
+  // Render at 2x scale for better text clarity
+  const viewport = page.getViewport({ scale: 2 });
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // Resize if too large
+  let { width, height } = canvas;
+  if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+    const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+    const resized = document.createElement('canvas');
+    resized.width  = Math.round(width  * ratio);
+    resized.height = Math.round(height * ratio);
+    resized.getContext('2d').drawImage(canvas, 0, 0, resized.width, resized.height);
+    return resized.toDataURL('image/jpeg', QUALITY).split(',')[1];
   }
 
+  return canvas.toDataURL('image/jpeg', QUALITY).split(',')[1];
+}
+
+// ── Image → compressed JPEG base64 ───────────────────────────────────────────
+
+async function imageToBase64(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
       URL.revokeObjectURL(url);
-
-      // Calculate new dimensions keeping aspect ratio
       let { width, height } = img;
       if (width > MAX_WIDTH || height > MAX_HEIGHT) {
         const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
         width  = Math.round(width  * ratio);
         height = Math.round(height * ratio);
       }
-
       const canvas = document.createElement('canvas');
       canvas.width  = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Export as JPEG base64
-      const dataUrl = canvas.toDataURL('image/jpeg', QUALITY);
-      resolve(dataUrl.split(',')[1]);
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', QUALITY).split(',')[1]);
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      // Fall back to raw
-      fileToBase64(file).then(resolve).catch(reject);
+      // Fallback: send raw
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(new Error('Failed to read image'));
+      reader.readAsDataURL(file);
     };
 
     img.src = url;
   });
 }
 
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-}
+// ── Main export ───────────────────────────────────────────────────────────────
 
-/**
- * Returns { items: [...], warning?: string }
- */
 export async function parseReceipt(file, existingProducts = []) {
-  const base64   = await compressImage(file);
-  const mimeType = file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'image/jpeg');
+  let base64;
+  const isPdf = file.type === 'application/pdf' || file.name?.endsWith('.pdf');
+
+  if (isPdf) {
+    base64 = await pdfToBase64(file);
+  } else {
+    base64 = await imageToBase64(file);
+  }
 
   const res = await fetch('/api/parse-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       base64,
-      mimeType,
+      mimeType: 'image/jpeg', // always JPEG after conversion
       existingProducts: existingProducts.map(p => ({
-        id:     p.id,
-        name:   p.name,
-        unit:   p.unit,
-        vendor: p.vendor,
+        id:   p.id,
+        name: p.name,
+        unit: p.unit,
       })),
     }),
   });
@@ -91,12 +127,8 @@ export async function parseReceipt(file, existingProducts = []) {
   }
 
   const data = await res.json();
-
   if (!Array.isArray(data.items)) throw new Error('Unexpected response from server');
   if (data.items.length === 0)    throw new Error('No items found. Try a clearer photo.');
 
-  return {
-    items:   data.items,
-    warning: data.warning || null,
-  };
+  return { items: data.items, warning: data.warning || null };
 }
