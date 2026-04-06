@@ -97,7 +97,9 @@ export default function ReceiptModal({ products, masterItems, onConfirm, onClose
       const enriched = matched.map(item => ({
         ...item,
         selected:     true,
-        editName:     item.nameCanonical || item.name,
+        // Priority: nameEn = guaranteed English translation from Gemini
+        // nameCanonical can still be French, name is always the original
+        editName:     item.nameEn || item.nameCanonical || item.name,
         editNameOrig: item.name,
         editNameEn:   item.nameEn || '',
         editQty:      item.quantity,
@@ -260,9 +262,9 @@ export default function ReceiptModal({ products, masterItems, onConfirm, onClose
                   </div>
 
                   {/* Row 2: original name hint */}
-                  {item.editNameEn && item.editNameEn !== item.editName && (
+                  {item.editNameOrig && item.editNameOrig !== item.editName && (
                     <div className={styles.nameHint}>
-                      {item.editNameOrig} · <em>{item.editNameEn}</em>
+                      orig: <em>{item.editNameOrig}</em>
                     </div>
                   )}
 

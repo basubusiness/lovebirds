@@ -33,13 +33,9 @@ function divergencePct(manual, learned) {
 export default function PatternsTab({ products, burnRates, onAcceptLearned, onEdit }) {
   const [view, setView] = useState('manual'); // 'manual' | 'learned'
 
-  // Show all products with any consumption signal:
-  // manual pattern, raw burnRate (pre-patch4), or a learned rate from logs
-  const tracked = products.filter(p =>
-    (p.manualBurnQty && p.manualBurnIntervalDays) ||
-    (p.burnRate && p.burnRate > 0) ||
-    burnRates[p.id]
-  );
+  // Show ALL products — Patterns tab is where you define patterns,
+  // not just where you view existing ones
+  const tracked = [...products].sort((a, b) => a.name.localeCompare(b.name));
 
   // Products where divergence is notable (>20%)
   const diverged = tracked.filter(p => {
@@ -76,7 +72,7 @@ export default function PatternsTab({ products, burnRates, onAcceptLearned, onEd
 
       {tracked.length === 0 ? (
         <div className={styles.empty}>
-          No consumption patterns yet. Add items and log usage to see patterns here.
+          No items in inventory yet. Add items first, then set consumption patterns here.
         </div>
       ) : (
         <div className={styles.table}>
@@ -87,7 +83,7 @@ export default function PatternsTab({ products, burnRates, onAcceptLearned, onEd
               {view === 'manual' ? 'Your pattern' : 'System learned'}
             </span>
             <span className={styles.colDiff}>vs other</span>
-            <span className={styles.colAction}></span>
+            <span className={styles.colAction}>Action</span>
           </div>
 
           {tracked.map(p => {
@@ -147,9 +143,9 @@ export default function PatternsTab({ products, burnRates, onAcceptLearned, onEd
                   <button
                     className={styles.editBtn}
                     onClick={() => onEdit(p)}
-                    title="Edit product"
+                    title={manualRate ? 'Edit pattern' : 'Set pattern'}
                   >
-                    ✎
+                    {manualRate ? '✎' : '+ set'}
                   </button>
                 </div>
               </div>

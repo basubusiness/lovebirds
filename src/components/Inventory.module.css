@@ -446,20 +446,45 @@
 }
 
 /* ── Card select state ───────────────────────────────────────── */
-.cardCheckbox {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-  cursor: pointer;
-  accent-color: #E24B4A;
-}
+
 .cardSelected {
-  border-color: #E24B4A !important;
-  background: #fef9f9 !important;
+  border: 2px solid #E24B4A !important;
+  background: #FCEBEB !important;
+  box-shadow: inset 0 0 0 1px rgba(226,75,74,0.15);
 }
 .cardSelectOverlay {
   position: absolute;
   inset: 0;
   cursor: pointer;
   border-radius: 12px;
+}
+
+/* ── Corner checkbox in select mode ─────────────────────────── */
+.checkCorner {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  cursor: pointer;
+}
+.checkBox {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-medium);
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, border-color 0.1s;
+}
+.checkBoxOn {
+  background: #E24B4A;
+  border-color: #E24B4A;
+}
+.checkMark {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
