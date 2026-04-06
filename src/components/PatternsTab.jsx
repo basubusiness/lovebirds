@@ -1,33 +1,16 @@
 /**
- * PatternsTab.jsx
- *
- * Manages master_items — the stable consumption pattern library.
- * Completely independent of inventory stock levels.
- *
- * - Lists all master items (seed + user's own), alphabetically
- * - Shows consumption pattern (qty / interval) and system-learned rate where available
- * - "In inventory" chip shows how many inventory products are linked
- * - Add → creates new master item (no inventory entry)
- * - Edit → inline form to update pattern
- * - Delete → removes master item only (inventory products keep their stock, lose the link)
- * - Two views: My definitions | System learned
+ * PatternsTab.jsx — grouped by category, smart sort, compact rows
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCategories } from '../hooks/useCategories';
 import { UNITS } from '../constants';
 import styles from './PatternsTab.module.css';
 
-function rateToHuman(rate, unit) {
-  if (!rate || rate <= 0) return '—';
-  const days = Math.round(1 / rate);
-  if (days <= 1) return `${parseFloat(rate.toFixed(2))} ${unit}/day`;
-  return `1 ${unit} every ${days}d`;
-}
-
-function manualToHuman(qty, interval, unit) {
+function rateToHuman(qty, interval, unit) {
   if (!qty || !interval) return '—';
-  return `${qty} ${unit} every ${interval}d`;
+  if (interval === 1) return `${qty} ${unit}/day`;
+  return `${qty} ${unit} / ${interval}d`;
 }
 
 function toRate(qty, days) {
@@ -40,30 +23,25 @@ function divergencePct(manual, learned) {
   return Math.round(Math.abs(learned - manual) / manual * 100);
 }
 
-// ── Inline edit form ──────────────────────────────────────────
-
-function EditForm({ item, categories, onSave, onCancel }) {
+function EditForm({ item, flatList, onSave, onCancel }) {
   const [name,     setName]     = useState(item?.name || '');
   const [catId,    setCatId]    = useState(item?.category_id ?? '');
   const [unit,     setUnit]     = useState(item?.unit || 'pc');
   const [burnQty,  setBurnQty]  = useState(item?.default_burn_qty || 1);
   const [burnDays, setBurnDays] = useState(item?.default_burn_interval_days || 7);
   const [minQty,   setMinQty]   = useState(item?.default_min_qty || 1);
-
-  const subcats = categories.filter(c => c.parent_id !== null);
-
+  const subcats = flatList.filter(c => c.parent_id !== null);
   const handleSave = () => {
     if (!name.trim()) return;
     onSave({
-      name:                          name.trim(),
-      category_id:                   catId ? parseInt(catId) : null,
+      name: name.trim(),
+      category_id: catId ? parseInt(catId) : null,
       unit,
-      default_min_qty:               parseFloat(minQty) || 1,
-      default_burn_qty:              parseFloat(burnQty) || 1,
-      default_burn_interval_days:    parseInt(burnDays) || 7,
+      default_min_qty: parseFloat(minQty) || 1,
+      default_burn_qty: parseFloat(burnQty) || 1,
+      default_burn_interval_days: parseInt(burnDays) || 7,
     });
   };
-
   return (
     <div className={styles.editForm}>
       <div className={styles.editGrid}>
@@ -75,9 +53,7 @@ function EditForm({ item, categories, onSave, onCancel }) {
           <label>Category</label>
           <select value={catId} onChange={e => setCatId(e.target.value)}>
             <option value="">Uncategorized</option>
-            {subcats.map(c => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
+            {subcats.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </div>
         <div className={styles.editField}>
@@ -87,7 +63,7 @@ function EditForm({ item, categories, onSave, onCancel }) {
           </select>
         </div>
         <div className={styles.editField}>
-          <label>Safety stock (min)</label>
+          <label>Safety stock min</label>
           <input type="number" min="0" step="0.5" value={minQty}
             onChange={e => setMinQty(e.target.value)} />
         </div>
@@ -101,7 +77,7 @@ function EditForm({ item, categories, onSave, onCancel }) {
           value={burnDays} onChange={e => setBurnDays(e.target.value)} />
         <span className={styles.burnLbl}>days</span>
         <span className={styles.burnCalc}>
-          → {toRate(burnQty, burnDays).toFixed(3)} {unit}/day
+          = {toRate(burnQty, burnDays).toFixed(3)} {unit}/day
         </span>
       </div>
       <div className={styles.editActions}>
@@ -112,216 +88,233 @@ function EditForm({ item, categories, onSave, onCancel }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────
+function PatternRow({ m, view, linkedCount, learnedRate, isEditing, confirmDel,
+  flatList, onEdit, onSave, onCancelEdit, onConfirmDel, onCancelDel, onDelete, onAcceptLearned }) {
+  const manualRate = toRate(m.default_burn_qty, m.default_burn_interval_days);
+  const diff       = divergencePct(manualRate, learnedRate);
+  const isDiverged = diff !== null && diff > 20;
+  const displayRate = view === 'manual'
+    ? rateToHuman(m.default_burn_qty, m.default_burn_interval_days, m.unit)
+    : (learnedRate ? rateToHuman(1, Math.max(1, Math.round(1 / learnedRate)), m.unit) : '—');
+
+  return (
+    <div>
+      <div className={`${styles.row} ${linkedCount > 0 ? styles.rowLinked : ''} ${isDiverged ? styles.rowDiverged : ''}`}>
+        <div className={styles.rowMain}>
+          <span className={styles.rowName}>{m.name}</span>
+          <span className={`${styles.rowRate} ${displayRate === '—' ? styles.rateMissing : ''}`}>
+            {displayRate}
+          </span>
+          {isDiverged && view === 'manual' && learnedRate && (
+            <span className={styles.diffPill}>{diff}% diff</span>
+          )}
+        </div>
+        <div className={styles.rowRight}>
+          {linkedCount > 0 && (
+            <span className={styles.inStockPill}>{linkedCount} in stock</span>
+          )}
+          {isDiverged && view === 'manual' && learnedRate && (
+            <button className={styles.acceptBtn} onClick={() => onAcceptLearned(m.id, learnedRate)}>
+              Accept
+            </button>
+          )}
+          <button className={styles.editBtn} onClick={onEdit}>
+            {isEditing ? '✕' : '✎'}
+          </button>
+          {confirmDel === m.id ? (
+            <>
+              <button className={styles.confirmDelBtn} onClick={onDelete}>Delete</button>
+              <button className={styles.cancelBtn} onClick={onCancelDel}>No</button>
+            </>
+          ) : (
+            <button className={styles.deleteBtn} onClick={onConfirmDel}>✕</button>
+          )}
+        </div>
+      </div>
+      {isEditing && (
+        <div className={styles.editFormRow}>
+          <EditForm item={m} flatList={flatList} onSave={onSave} onCancel={onCancelEdit} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryGroup({ topCat, items, view, linkedProducts, burnRates,
+  editingId, confirmDel, flatList, onEdit, onSaveEdit, onCancelEdit,
+  onConfirmDel, onCancelDel, onDelete, onAcceptLearned }) {
+  const [open, setOpen] = useState(true);
+  if (items.length === 0) return null;
+
+  const linkedCount = (id) => linkedProducts.filter(p => p.masterItemId === id).length;
+  const learnedFor  = (id) => {
+    const rates = linkedProducts.filter(p => p.masterItemId === id)
+      .map(p => burnRates[p.id]).filter(Boolean);
+    return rates.length ? rates.reduce((a, b) => a + b) / rates.length : null;
+  };
+  const inStockCount = items.filter(m => linkedCount(m.id) > 0).length;
+
+  return (
+    <div className={styles.catGroup}>
+      <button className={styles.catHeader} onClick={() => setOpen(o => !o)}>
+        <span className={styles.catIcon}>{topCat.icon}</span>
+        <span className={styles.catName}>{topCat.name}</span>
+        {inStockCount > 0 && (
+          <span className={styles.catInStock}>{inStockCount} in stock</span>
+        )}
+        <span className={styles.catCount}>{items.length} items</span>
+        <span className={styles.catChevron}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className={styles.catItems}>
+          {items.map(m => (
+            <PatternRow
+              key={m.id}
+              m={m}
+              view={view}
+              linkedCount={linkedCount(m.id)}
+              learnedRate={learnedFor(m.id)}
+              isEditing={editingId === m.id}
+              confirmDel={confirmDel}
+              flatList={flatList}
+              onEdit={() => onEdit(m.id)}
+              onSave={(patch) => onSaveEdit(m.id, patch)}
+              onCancelEdit={onCancelEdit}
+              onConfirmDel={() => onConfirmDel(m.id)}
+              onCancelDel={onCancelDel}
+              onDelete={() => onDelete(m.id)}
+              onAcceptLearned={onAcceptLearned}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PatternsTab({
-  masterItems, loadingMaster,
-  products,       // for "in inventory" count only
-  burnRates,      // keyed by product_id — we aggregate per master item
-  onAddMaster, onUpdateMaster, onDeleteMaster,
-  onAcceptLearned,
+  masterItems, loadingMaster, products, burnRates,
+  onAddMaster, onUpdateMaster, onDeleteMaster, onAcceptLearned,
 }) {
   const [view,       setView]       = useState('manual');
-  const [editingId,  setEditingId]  = useState(null);  // master item id being edited
+  const [editingId,  setEditingId]  = useState(null);
   const [addingNew,  setAddingNew]  = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [search,     setSearch]     = useState('');
-  const { flatList } = useCategories();
+  const { topLevel, byId, flatList } = useCategories();
 
-  // For each master item, find linked products and their avg learned rate
-  const linkedProducts = (masterItemId) =>
-    products.filter(p => p.masterItemId === masterItemId);
+  const linkedIds = useMemo(() =>
+    new Set(products.map(p => p.masterItemId).filter(Boolean)),
+  [products]);
 
-  const learnedRateFor = (masterItemId) => {
-    const linked = linkedProducts(masterItemId);
-    if (linked.length === 0) return null;
-    const rates = linked.map(p => burnRates[p.id]).filter(Boolean);
-    if (rates.length === 0) return null;
-    return rates.reduce((a, b) => a + b, 0) / rates.length;
-  };
-
-  const filtered = masterItems.filter(m =>
-    !search || m.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const diverged = filtered.filter(m => {
-    const manualRate = toRate(m.default_burn_qty, m.default_burn_interval_days);
-    const learned    = learnedRateFor(m.id);
-    const d = divergencePct(manualRate, learned);
-    return d !== null && d > 20;
+  const sortItems = (items) => [...items].sort((a, b) => {
+    const aL = linkedIds.has(a.id) ? 0 : 1;
+    const bL = linkedIds.has(b.id) ? 0 : 1;
+    if (aL !== bL) return aL - bL;
+    return a.name.localeCompare(b.name);
   });
 
-  const handleSaveNew = async (patch) => {
-    await onAddMaster(patch);
-    setAddingNew(false);
-  };
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return masterItems.filter(m => !q || m.name.toLowerCase().includes(q));
+  }, [masterItems, search]);
 
-  const handleSaveEdit = async (patch) => {
-    await onUpdateMaster(editingId, patch);
-    setEditingId(null);
-  };
+  const grouped = useMemo(() => {
+    const g = {};
+    for (const m of filtered) {
+      const sub    = m.category_id ? byId(m.category_id) : null;
+      const topId  = sub?.parent_id ?? sub?.id ?? 'uncategorized';
+      if (!g[topId]) g[topId] = [];
+      g[topId].push(m);
+    }
+    return g;
+  }, [filtered, byId]);
 
-  const handleDelete = async (id) => {
-    await onDeleteMaster(id);
-    setConfirmDel(null);
-  };
+  const divergedCount = filtered.filter(m => {
+    const mr = toRate(m.default_burn_qty, m.default_burn_interval_days);
+    const rates = products.filter(p => p.masterItemId === m.id)
+      .map(p => burnRates[p.id]).filter(Boolean);
+    const lr = rates.length ? rates.reduce((a, b) => a + b) / rates.length : null;
+    const d = divergencePct(mr, lr);
+    return d !== null && d > 20;
+  }).length;
 
   if (loadingMaster) return <div className={styles.empty}>Loading patterns…</div>;
 
   return (
     <div>
-      {/* ── Toolbar ── */}
       <div className={styles.toolbar}>
         <div className={styles.toggle}>
-          <button
-            className={`${styles.toggleBtn} ${view === 'manual' ? styles.toggleActive : ''}`}
-            onClick={() => setView('manual')}
-          >My definitions</button>
-          <button
-            className={`${styles.toggleBtn} ${view === 'learned' ? styles.toggleActive : ''}`}
-            onClick={() => setView('learned')}
-          >System learned</button>
+          <button className={`${styles.toggleBtn} ${view === 'manual' ? styles.toggleActive : ''}`}
+            onClick={() => setView('manual')}>My definitions</button>
+          <button className={`${styles.toggleBtn} ${view === 'learned' ? styles.toggleActive : ''}`}
+            onClick={() => setView('learned')}>System learned</button>
         </div>
-        {diverged.length > 0 && (
-          <span className={styles.divergeBadge}>
-            {diverged.length} diverged
-          </span>
+        {divergedCount > 0 && (
+          <span className={styles.divergeBadge}>{divergedCount} diverged</span>
         )}
-        <input
-          className={styles.searchInput}
-          placeholder="Search patterns…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <button className={styles.addBtn} onClick={() => { setAddingNew(true); setEditingId(null); }}>
+        <input className={styles.searchInput} placeholder="Search patterns…"
+          value={search} onChange={e => setSearch(e.target.value)} />
+        <button className={styles.addBtn}
+          onClick={() => { setAddingNew(true); setEditingId(null); }}>
           + Add pattern
         </button>
       </div>
 
-      {/* ── Add new form ── */}
       {addingNew && (
         <div className={styles.addFormWrap}>
           <div className={styles.addFormTitle}>New consumption pattern</div>
-          <EditForm
-            item={null}
-            categories={flatList}
-            onSave={handleSaveNew}
-            onCancel={() => setAddingNew(false)}
-          />
+          <EditForm item={null} flatList={flatList}
+            onSave={async (p) => { await onAddMaster(p); setAddingNew(false); }}
+            onCancel={() => setAddingNew(false)} />
         </div>
       )}
 
       {filtered.length === 0 ? (
         <div className={styles.empty}>
-          {search ? 'No patterns match your search.' : 'No patterns yet — add one above.'}
+          {search ? 'No patterns match.' : 'No patterns yet — add one above.'}
         </div>
       ) : (
-        <div className={styles.table}>
-          {/* Header */}
-          <div className={styles.headerRow}>
-            <span className={styles.colName}>Item</span>
-            <span className={styles.colRate}>
-              {view === 'manual' ? 'Your pattern' : 'System learned'}
-            </span>
-            <span className={styles.colOther}>
-              {view === 'manual' ? 'System learned' : 'Your pattern'}
-            </span>
-            <span className={styles.colStock}>In stock</span>
-            <span className={styles.colAction}></span>
-          </div>
-
-          {filtered.map(m => {
-            const manualRate  = toRate(m.default_burn_qty, m.default_burn_interval_days);
-            const learnedRate = learnedRateFor(m.id);
-            const diff        = divergencePct(manualRate, learnedRate);
-            const isDiverged  = diff !== null && diff > 20;
-            const linked      = linkedProducts(m.id);
-            const isEditing   = editingId === m.id;
-
-            const manualDisplay = manualToHuman(
-              m.default_burn_qty, m.default_burn_interval_days, m.unit
-            );
-            const learnedDisplay = rateToHuman(learnedRate, m.unit);
-
-            const displayRate = view === 'manual' ? manualDisplay : learnedDisplay;
-            const otherRate   = view === 'manual' ? learnedDisplay : manualDisplay;
-
-            return (
-              <div key={m.id}>
-                <div className={`${styles.row} ${isDiverged ? styles.rowDiverged : ''}`}>
-                  <div className={styles.colName}>
-                    <div className={styles.itemName}>{m.name}</div>
-                    <div className={styles.itemMeta}>{m.unit}</div>
-                  </div>
-
-                  <div className={styles.colRate}>
-                    <span className={`${styles.rateValue} ${displayRate === '—' ? styles.rateMissing : ''}`}>
-                      {displayRate}
-                    </span>
-                  </div>
-
-                  <div className={styles.colOther}>
-                    {otherRate !== '—' && (
-                      <span className={styles.otherRate}>{otherRate}</span>
-                    )}
-                    {isDiverged && (
-                      <span className={styles.diffBadge}>{diff}% diff</span>
-                    )}
-                  </div>
-
-                  <div className={styles.colStock}>
-                    {linked.length > 0 ? (
-                      <span className={styles.inStockBadge}>
-                        {linked.length} item{linked.length !== 1 ? 's' : ''}
-                      </span>
-                    ) : (
-                      <span className={styles.noStock}>—</span>
-                    )}
-                  </div>
-
-                  <div className={styles.colAction}>
-                    {learnedRate && isDiverged && view === 'manual' && (
-                      <button
-                        className={styles.acceptBtn}
-                        onClick={() => onAcceptLearned(m.id, learnedRate)}
-                        title="Use system learned rate as your definition"
-                      >Accept</button>
-                    )}
-                    <button
-                      className={styles.editBtn}
-                      onClick={() => { setEditingId(isEditing ? null : m.id); setAddingNew(false); }}
-                    >
-                      {isEditing ? '✕' : '✎'}
-                    </button>
-                    {confirmDel === m.id ? (
-                      <>
-                        <button className={styles.confirmDelBtn} onClick={() => handleDelete(m.id)}>
-                          Delete
-                        </button>
-                        <button onClick={() => setConfirmDel(null)}>No</button>
-                      </>
-                    ) : (
-                      <button className={styles.deleteBtn} onClick={() => setConfirmDel(m.id)}>
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Inline edit form */}
-                {isEditing && (
-                  <div className={styles.editFormRow}>
-                    <EditForm
-                      item={m}
-                      categories={flatList}
-                      onSave={handleSaveEdit}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className={styles.groups}>
+          {topLevel.map(topCat => (
+            <CategoryGroup
+              key={topCat.id}
+              topCat={topCat}
+              items={sortItems(grouped[topCat.id] ?? [])}
+              view={view}
+              linkedProducts={products}
+              burnRates={burnRates}
+              editingId={editingId}
+              confirmDel={confirmDel}
+              flatList={flatList}
+              onEdit={(id) => setEditingId(prev => prev === id ? null : id)}
+              onSaveEdit={async (id, p) => { await onUpdateMaster(id, p); setEditingId(null); }}
+              onCancelEdit={() => setEditingId(null)}
+              onConfirmDel={(id) => setConfirmDel(id)}
+              onCancelDel={() => setConfirmDel(null)}
+              onDelete={async (id) => { await onDeleteMaster(id); setConfirmDel(null); setEditingId(null); }}
+              onAcceptLearned={onAcceptLearned}
+            />
+          ))}
+          {(grouped['uncategorized'] ?? []).length > 0 && (
+            <CategoryGroup
+              topCat={{ id: 'uncategorized', name: 'Uncategorized', icon: '📦' }}
+              items={sortItems(grouped['uncategorized'])}
+              view={view}
+              linkedProducts={products}
+              burnRates={burnRates}
+              editingId={editingId}
+              confirmDel={confirmDel}
+              flatList={flatList}
+              onEdit={(id) => setEditingId(prev => prev === id ? null : id)}
+              onSaveEdit={async (id, p) => { await onUpdateMaster(id, p); setEditingId(null); }}
+              onCancelEdit={() => setEditingId(null)}
+              onConfirmDel={(id) => setConfirmDel(id)}
+              onCancelDel={() => setConfirmDel(null)}
+              onDelete={async (id) => { await onDeleteMaster(id); setConfirmDel(null); setEditingId(null); }}
+              onAcceptLearned={onAcceptLearned}
+            />
+          )}
         </div>
       )}
     </div>
