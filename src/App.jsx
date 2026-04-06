@@ -61,7 +61,7 @@ function AppInner() {
   const [toast,    setToast]    = useState(null);
   const [sidebarCat, setSidebarCat] = useState(null); // active sidebar category id
 
-  const { topLevel, childrenOf, byId } = useCategories();
+  const { topLevel, childrenOf } = useCategories();
 
   const notify = msg => setToast(msg);
 
