@@ -18,34 +18,43 @@ module.exports = async function handler(req, res) {
   if (!query) return res.status(400).json({ error: 'Missing q param' });
 
   const key = process.env.UNSPLASH_ACCESS_KEY;
-  if (!key) {
-    // Graceful degradation — no key configured, return null
-    return res.status(200).json({ url: null });
-  }
 
   try {
-    const searchUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape&client_id=${key}`;
-    const response  = await fetch(searchUrl);
+    // ── Try Unsplash first (if key is configured) ──────────────────
+    if (key) {
+      const searchUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape&client_id=${key}`;
+      const response  = await fetch(searchUrl);
 
-    if (!response.ok) {
-      console.error('[fetch-image] Unsplash error:', response.status);
-      return res.status(200).json({ url: null });
+      if (response.ok) {
+        const data    = await response.json();
+        const results = data?.results ?? [];
+        const url     = results[0]?.urls?.small ?? null;
+        if (url) {
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.status(200).json({ url, source: 'unsplash' });
+        }
+      } else {
+        console.error('[fetch-image] Unsplash error:', response.status);
+      }
     }
 
-    const data    = await response.json();
-    const results = data?.results ?? [];
-
-    if (results.length === 0) {
-      return res.status(200).json({ url: null });
+    // ── Fallback: Wikimedia Commons (free, no key needed) ──────────
+    // Uses the Wikimedia API to find a representative food image
+    const wikiQuery   = query.replace(/ food$/i, '').trim();
+    const wikiUrl     = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`;
+    const wikiRes     = await fetch(wikiUrl, {
+      headers: { 'User-Agent': 'HIRT-household-app/1.0' }
+    });
+    if (wikiRes.ok) {
+      const wikiData = await wikiRes.json();
+      const url      = wikiData?.thumbnail?.source ?? wikiData?.originalimage?.source ?? null;
+      if (url) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.status(200).json({ url, source: 'wikipedia' });
+      }
     }
 
-    // Prefer food/product images — pick the first result
-    // Use the 'small' size (400px wide) — fast to load, good enough for cards
-    const url = results[0]?.urls?.small ?? null;
-
-    // Cache headers — images don't change often
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    return res.status(200).json({ url });
+    return res.status(200).json({ url: null });
   } catch (e) {
     console.error('[fetch-image] error:', e.message);
     return res.status(200).json({ url: null });
