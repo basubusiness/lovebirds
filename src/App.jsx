@@ -48,9 +48,7 @@ function AppInner() {
           addMasterItem,
           updateMasterItem,
           deleteMasterItem }              = useMasterItems();
-  const { imageUrls,
-          seedFromProducts,
-          fetchMissing }                 = useProductImages();
+  const { imageUrls, setImageUrl }    = useProductImages(products);
 
   const [tab,      setTab]      = useState('dashboard');
   const [modal,    setModal]    = useState(null);
@@ -68,14 +66,6 @@ function AppInner() {
   const { topLevel, childrenOf } = useCategories();
 
   const notify = msg => setToast(msg);
-
-  // Seed + fetch product images (stored on products table, user-owned)
-  const [_imagesSeeded, setImagesSeeded] = useState(false);
-  if (products.length > 0 && !_imagesSeeded) {
-    setImagesSeeded(true);
-    seedFromProducts(products);
-    fetchMissing(products);
-  }
 
   const productsWithBurnRates = products.map(p => ({
     ...p,
@@ -366,6 +356,7 @@ function AppInner() {
           learnedRate={burnRates[quickEdit.id]}
           onSave={(updated) => { saveProduct(updated); setQuickEdit(null); }}
           onFullEdit={() => { setModal(quickEdit); setQuickEdit(null); }}
+          onSaveImage={(url) => setImageUrl(quickEdit.id, url)}
           onClose={() => setQuickEdit(null)}
         />
       )}
