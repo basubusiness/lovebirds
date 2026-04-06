@@ -9,32 +9,36 @@ import { supabase } from '../lib/supabase';
 
 function fromDb(row) {
   return {
-    id:          row.id,
-    name:        row.name,
-    cat:         row.cat,
-    categoryId:  row.category_id,
-    unit:        row.unit,
-    minQty:      row.min_qty,
-    currentQty:  row.current_qty,
-    vendor:      row.vendor,
-    burnRate:    row.burn_rate,
-    note:        row.note,
+    id:                      row.id,
+    name:                    row.name,
+    cat:                     row.cat,
+    categoryId:              row.category_id,
+    unit:                    row.unit,
+    minQty:                  row.min_qty,
+    currentQty:              row.current_qty,
+    vendor:                  row.vendor,
+    burnRate:                row.burn_rate,
+    manualBurnQty:           row.manual_burn_qty ?? null,
+    manualBurnIntervalDays:  row.manual_burn_interval_days ?? null,
+    note:                    row.note,
   };
 }
 
 function toDb(p, userId) {
   return {
-    id:          p.id,
-    user_id:     userId,
-    name:        p.name,
-    cat:         p.cat ?? 'Other',
-    category_id: p.categoryId ?? null,
-    unit:        p.unit,
-    min_qty:     p.minQty,
-    current_qty: p.currentQty,
-    vendor:      p.vendor,
-    burn_rate:   p.burnRate,
-    note:        p.note ?? '',
+    id:                         p.id,
+    user_id:                    userId,
+    name:                       p.name,
+    cat:                        p.cat ?? 'Other',
+    category_id:                p.categoryId ?? null,
+    unit:                       p.unit,
+    min_qty:                    p.minQty,
+    current_qty:                p.currentQty,
+    vendor:                     p.vendor,
+    burn_rate:                  p.burnRate,
+    manual_burn_qty:            p.manualBurnQty ?? null,
+    manual_burn_interval_days:  p.manualBurnIntervalDays ?? null,
+    note:                       p.note ?? '',
   };
 }
 
