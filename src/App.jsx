@@ -44,6 +44,7 @@ function AppInner() {
   const { schedules, upsertSchedule }         = useVendorSchedules();
   const { items: masterItems,
           loading: masterLoading,
+          imageUrls: masterImageUrls,
           addMasterItem,
           updateMasterItem,
           deleteMasterItem }              = useMasterItems();
@@ -66,11 +67,10 @@ function AppInner() {
   const notify = msg => setToast(msg);
 
   // Merge EWMA burn rates + master item image URLs into products
-  const masterItemMap = Object.fromEntries(masterItems.map(m => [m.id, m]));
   const productsWithBurnRates = products.map(p => ({
     ...p,
     burnRate: burnRates[p.id] ?? p.burnRate,
-    _imageUrl: p.masterItemId ? (masterItemMap[p.masterItemId]?.image_url ?? null) : null,
+    _imageUrl: p.masterItemId ? (masterImageUrls[p.masterItemId] ?? null) : null,
   }));
 
   /* ── product CRUD ── */
@@ -288,10 +288,25 @@ function AppInner() {
             activeId={sidebarCat}
             onSelect={(id) => {
               setSidebarCat(id);
-              // Scroll to section
               setTimeout(() => {
-                const el = document.getElementById(`cat-section-${id ?? 'all'}`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // For Patterns tab, CategoryGroup uses top-level ids.
+                // If a sub id is clicked, try it first, then fall back to parent.
+                const tryScroll = (targetId) => {
+                  const el = document.getElementById(`cat-section-${targetId}`);
+                  if (el) {
+                    const offset = 64; // header height
+                    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+                    window.scrollTo({ top, behavior: 'smooth' });
+                    return true;
+                  }
+                  return false;
+                };
+                if (!id) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+                if (!tryScroll(id)) {
+                  // Try parent (for Patterns tab which groups by top-level)
+                  const sub = topLevel.flatMap(t => childrenOf(t.id)).find(s => s.id === id);
+                  if (sub?.parent_id) tryScroll(sub.parent_id);
+                }
               }, 50);
             }}
           />
