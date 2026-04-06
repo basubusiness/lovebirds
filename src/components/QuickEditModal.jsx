@@ -55,7 +55,7 @@ function suggestCategory(name, masterItems) {
 
 export default function QuickEditModal({
   product, masterItems, learnedRate,
-  onSave, onFullEdit, onClose,
+  onSave, onSaveImage, onFullEdit, onClose,
 }) {
   const init = rateToComponents(product.burnRate, product.manualBurnQty, product.manualBurnIntervalDays);
 
@@ -65,36 +65,13 @@ export default function QuickEditModal({
   const [burnDays,    setBurnDays]    = useState(init.interval);
   const [minQty,      setMinQty]      = useState(product.minQty || 1);
   const [catSuggest,  setCatSuggest]  = useState(null);  // { id, name } suggested category
-  const [imageUrl,    setImageUrl]    = useState(null);
+  const [imageUrl,    setImageUrl]    = useState(product._imageUrl ?? null);
   const [imgLoading,  setImgLoading]  = useState(false);
   const [uploading,   setUploading]   = useState(false);
   const fileRef = useRef();
   const debounceRef = useRef();
 
-  // Load image from master item
-  useEffect(() => {
-    if (!product.masterItemId || !masterItems) return;
-    const master = masterItems.find(m => m.id === product.masterItemId);
-    if (master?.image_url) { setImageUrl(master.image_url); return; }
-
-    // Auto-fetch from Unsplash if no image cached
-    setImgLoading(true);
-    fetch(`/api/fetch-image?q=${encodeURIComponent(product.name + ' food')}`)
-      .then(r => r.json())
-      .then(async data => {
-        if (data.url) {
-          setImageUrl(data.url);
-          // Cache in master_items
-          if (product.masterItemId) {
-            await supabase.from('master_items')
-              .update({ image_url: data.url })
-              .eq('id', product.masterItemId);
-          }
-        }
-      })
-      .catch(() => {})
-      .finally(() => setImgLoading(false));
-  }, [product.masterItemId, product.name, masterItems]);
+  // Image already pre-loaded via _imageUrl prop from App
 
   // Debounced category suggestion as name changes
   const handleNameChange = useCallback((val) => {
@@ -127,13 +104,8 @@ export default function QuickEditModal({
         .getPublicUrl(path);
 
       setImageUrl(publicUrl);
-
-      // Save to master_items if linked
-      if (product.masterItemId) {
-        await supabase.from('master_items')
-          .update({ image_url: publicUrl })
-          .eq('id', product.masterItemId);
-      }
+      // Save via App's setImageUrl (writes to products table)
+      if (onSaveImage) onSaveImage(publicUrl);
     } catch (e) {
       console.error('[QuickEditModal] upload failed:', e);
     } finally {
