@@ -18,6 +18,7 @@ import ProductModal           from './components/ProductModal';
 import ReceiptModal           from './components/ReceiptModal';
 import ImportsModal           from './components/ImportsModal';
 import SettingsModal          from './components/SettingsModal';
+import QuickEditModal         from './components/QuickEditModal';
 import { ConsumeModal, RestockModal, FinishedModal } from './components/QuickModals';
 import Toast                  from './components/Toast';
 
@@ -47,6 +48,7 @@ function AppInner() {
 
   const [tab,      setTab]      = useState('dashboard');
   const [modal,    setModal]    = useState(null);
+  const [quickEdit, setQuickEdit] = useState(null); // product for quick-edit modal
   const [account,  setAccount]  = useState(false);
   const [consume,  setConsume]  = useState(null);
   const [restock,  setRestock]  = useState(null);
@@ -266,7 +268,7 @@ function AppInner() {
         {tab === 'inventory' && (
           <Inventory
             products={productsWithBurnRates}
-            onEdit={p => setModal(p)}
+            onEdit={p => setQuickEdit(p)}
             onConsume={p => setConsume(p)}
             onRestock={p => setRestock(p)}
             onFinished={p => setFinished(p)}
@@ -304,6 +306,15 @@ function AppInner() {
             acceptLearnedRate(modal.id, rate);
             setModal(null);
           }}
+        />
+      )}
+      {quickEdit && (
+        <QuickEditModal
+          product={quickEdit}
+          learnedRate={burnRates[quickEdit.id]}
+          onSave={(updated) => { saveProduct(updated); setQuickEdit(null); }}
+          onFullEdit={() => { setModal(quickEdit); setQuickEdit(null); }}
+          onClose={() => setQuickEdit(null)}
         />
       )}
       {consume && (
