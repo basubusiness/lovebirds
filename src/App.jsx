@@ -203,7 +203,7 @@ function AppInner() {
 
     setReceipt(false);
     notify(`Receipt imported: ${updated} updated, ${added} new item${added !== 1 ? 's' : ''}`);
-  }, [setProducts, saveImport]);
+  }, [setProducts, saveImport, masterItems]);
 
   const clearAll = useCallback(() => setProducts([]), [setProducts]);
 
