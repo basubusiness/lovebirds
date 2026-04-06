@@ -15,9 +15,11 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const query = req.query.q;
+  console.log('[fetch-image] called with q:', query);
   if (!query) return res.status(400).json({ error: 'Missing q param' });
 
   const key = process.env.UNSPLASH_ACCESS_KEY;
+  console.log('[fetch-image] UNSPLASH_ACCESS_KEY set:', !!key);
 
   try {
     // ── Try Unsplash first (if key is configured) ──────────────────
@@ -38,6 +40,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    console.log('[fetch-image] Trying Wikipedia fallback for:', query);
     // ── Fallback: Wikimedia Commons (free, no key needed) ──────────
     // Uses the Wikimedia API to find a representative food image
     const wikiQuery   = query.replace(/ food$/i, '').trim();
@@ -54,6 +57,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    console.log('[fetch-image] No image found for:', query);
     return res.status(200).json({ url: null });
   } catch (e) {
     console.error('[fetch-image] error:', e.message);
