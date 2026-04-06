@@ -11,9 +11,10 @@ import { supabase } from '../lib/supabase';
 let _cache = null;
 
 export function useMasterItems() {
-  const [items,   setItems]   = useState(_cache || []);
-  const [loading, setLoading] = useState(!_cache);
-  const [userId,  setUserId]  = useState(null);
+  const [items,     setItems]     = useState(_cache || []);
+  const [loading,   setLoading]   = useState(!_cache);
+  const [userId,    setUserId]    = useState(null);
+  const [imageUrls, setImageUrls] = useState({}); // masterItemId → url
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
@@ -32,9 +33,30 @@ export function useMasterItems() {
       .order('name', { ascending: true })
       .then(({ data, error }) => {
         if (error) console.error('[useMasterItems] fetch:', error);
-        _cache = data ?? [];
-        setItems(_cache);
+        const loaded = data ?? [];
+        _cache = loaded;
+        setItems(loaded);
         setLoading(false);
+        // Populate imageUrls from cached DB values immediately
+        const urls = {};
+        for (const m of loaded) {
+          if (m.image_url) urls[m.id] = m.image_url;
+        }
+        setImageUrls(urls);
+        // Eagerly fetch images for items without one (fire-and-forget, limit to 20)
+        const missing = loaded.filter(m => !m.image_url).slice(0, 20);
+        missing.forEach(async (m) => {
+          try {
+            const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`);
+            const data = await res.json();
+            if (data.url) {
+              setImageUrls(prev => ({ ...prev, [m.id]: data.url }));
+              await supabase.from('master_items').update({ image_url: data.url }).eq('id', m.id);
+              // Update cache
+              _cache = _cache.map(x => x.id === m.id ? { ...x, image_url: data.url } : x);
+            }
+          } catch {}
+        });
       });
   }, [userId]);
 
@@ -90,7 +112,7 @@ export function useMasterItems() {
     ) ?? null;
   }, [items]);
 
-  return { items, loading, addMasterItem, updateMasterItem, deleteMasterItem, findByName };
+  return { items, loading, imageUrls, addMasterItem, updateMasterItem, deleteMasterItem, findByName };
 }
 
 /**
