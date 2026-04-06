@@ -4,7 +4,7 @@ import { useImports }         from './hooks/useImports';
 import { useConsumptionLog }  from './hooks/useConsumptionLog';
 import { useVendorSchedules } from './hooks/useVendorSchedules';
 import { useMasterItems }     from './hooks/useMasterItems';
-import { VENDORS }            from './constants';
+
 import { getStatus, uid }     from './utils';
 
 import AuthGate, { useAuth }  from './components/AuthGate';
