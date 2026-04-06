@@ -50,16 +50,48 @@ export default function ReceiptModal({ products, masterItems, onConfirm, onClose
   const { flatList } = useCategories();
 
   // ── Suggest category for a receipt item ──────────────────────
-  // 1. Check master items by name match
-  // 2. Check existing inventory match (item.matched)
-  // 3. Fall back to null
+  // Priority:
+  //   1. Existing inventory match already has a category → use it
+  //   2. Token-overlap against master items (same algorithm as matcher.js)
+  //      Uses nameEn (English) as primary query, falls back to nameCanonical
+  //   3. null (user picks manually)
+  const tokenize = (str) =>
+    (str || '').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(t => t.length > 1);
+
+  const overlap = (a, b) => {
+    const sa = new Set(tokenize(a));
+    const sb = new Set(tokenize(b));
+    if (sa.size === 0 || sb.size === 0) return 0;
+    const inter = [...sa].filter(t => sb.has(t)).length;
+    // Use containment: if all tokens of the shorter name appear in the longer → strong match
+    const smaller = sa.size <= sb.size ? sa : sb;
+    const larger  = sa.size <= sb.size ? sb : sa;
+    const contained = [...smaller].every(t => larger.has(t));
+    return contained ? 1 : inter / new Set([...sa, ...sb]).size;
+  };
+
   const suggestCategory = (item) => {
     if (item.matched?.categoryId) return item.matched.categoryId;
-    const q = (item.nameCanonical || item.name || '').toLowerCase();
-    const master = masterItems.find(m =>
-      m.name.toLowerCase().includes(q) || q.includes(m.name.toLowerCase())
-    );
-    return master?.category_id ?? null;
+
+    // Use English name as primary query (nameEn guaranteed by Gemini Step 2)
+    const query = item.nameEn || item.nameCanonical || item.name || '';
+
+    let bestScore = 0;
+    let bestCatId = null;
+
+    for (const m of masterItems) {
+      const score = overlap(query, m.name);
+      if (score > bestScore) {
+        bestScore = score;
+        bestCatId = m.category_id;
+      }
+    }
+
+    // Only accept if there's meaningful overlap (>0.3 Jaccard or full containment)
+    return bestScore >= 0.3 ? bestCatId : null;
   };
 
   const handleFile = (f) => {
