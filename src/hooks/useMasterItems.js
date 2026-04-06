@@ -61,22 +61,38 @@ export function useMasterItems() {
       });
   }, [userId]);
 
-  // Effect 2: fetch missing images — runs whenever items are loaded
-  // Separated from Effect 1 so it always runs even when cache is hit
+  // Effect 2: fetch missing images
   useEffect(() => {
-    if (!userId || items.length === 0) return;
-    const missing = items.filter(m => !m.image_url).slice(0, 20);
-    if (missing.length === 0) return;
+    console.log('[IMG] Effect 2 fired. userId:', userId, 'items.length:', items.length);
+    if (!userId || items.length === 0) {
+      console.log('[IMG] Skipping — no userId or no items');
+      return;
+    }
+    const missing = items.filter(m => !m.image_url).slice(0, 5); // limit to 5 for debug
+    console.log('[IMG] Items without image_url:', missing.length, missing.map(m => m.name));
+    if (missing.length === 0) {
+      console.log('[IMG] All items already have image_url cached');
+      return;
+    }
     missing.forEach(async (m) => {
       try {
-        const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`);
+        const url = `/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`;
+        console.log('[IMG] Fetching:', url);
+        const res  = await fetch(url);
+        console.log('[IMG] Response status:', res.status, 'for', m.name);
         const data = await res.json();
+        console.log('[IMG] Response data:', data, 'for', m.name);
         if (data.url) {
           setImageUrls(prev => ({ ...prev, [m.id]: data.url }));
           await supabase.from('master_items').update({ image_url: data.url }).eq('id', m.id);
           _cache = (_cache || []).map(x => x.id === m.id ? { ...x, image_url: data.url } : x);
+          console.log('[IMG] Saved image for', m.name, ':', data.url);
+        } else {
+          console.warn('[IMG] No url returned for', m.name, '— full response:', data);
         }
-      } catch {}
+      } catch (e) {
+        console.error('[IMG] Fetch failed for', m.name, ':', e.message);
+      }
     });
   }, [userId, items]);
 
