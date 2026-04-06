@@ -1,5 +1,11 @@
 .formRow { margin-bottom: 12px; }
-.formRow label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+.formRow label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 500;
+}
 
 .formGrid {
   display: grid;
@@ -7,6 +13,144 @@
   gap: 10px;
 }
 
+/* ── Quick-select step ── */
+.searchWrap { margin-bottom: 10px; }
+.searchInput { width: 100%; }
+
+.masterList {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 0.5px solid var(--border-light);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.masterRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 0.5px solid var(--border-light);
+  background: var(--bg-primary);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  gap: 8px;
+}
+.masterRow:last-child { border-bottom: none; }
+.masterRow:hover { background: var(--bg-secondary); }
+
+.masterName { flex: 1; font-size: 13px; font-weight: 500; }
+.masterMeta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+
+.empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.customRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px 0;
+}
+.customText { font-size: 12px; color: var(--text-secondary); }
+.customBtn {
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: #1D9E75;
+  cursor: pointer;
+  padding: 4px 0;
+  font-weight: 500;
+}
+.customBtn:hover { text-decoration: underline; background: none; }
+
+.backBtn {
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 0 12px;
+  display: block;
+}
+.backBtn:hover { color: var(--text-primary); background: none; }
+
+/* ── Burn rate row ── */
+.burnRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.burnLabel { font-size: 12px; color: var(--text-secondary); }
+.burnQtyInput  { width: 60px; text-align: center; }
+.burnDaysInput { width: 60px; text-align: center; }
+.burnRate {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ── Learned comparison box ── */
+.learnedBox {
+  background: var(--bg-secondary);
+  border: 0.5px solid var(--border-light);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.learnedTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.learnedCompare {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.learnedCol { flex: 1; }
+.learnedColLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.learnedValue { font-size: 13px; font-weight: 500; }
+.learnedDiverged { color: #E24B4A; }
+.learnedDivider {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.learnedDivergence {
+  font-size: 11px;
+  color: #854F0B;
+  margin-bottom: 8px;
+}
+.acceptBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 0.5px solid #1D9E75;
+  background: #EAF3DE;
+  color: #3B6D11;
+  cursor: pointer;
+}
+.acceptBtn:hover { background: #1D9E75; color: #fff; }
+
+/* ── Actions ── */
 .actions {
   display: flex;
   align-items: center;
@@ -15,8 +159,7 @@
   padding-top: 1rem;
   border-top: 0.5px solid var(--border-light);
 }
-
-.rightActions { display: flex; gap: 8px; }
+.rightActions { display: flex; gap: 8px; margin-left: auto; }
 
 .saveBtn {
   background: #1D9E75;

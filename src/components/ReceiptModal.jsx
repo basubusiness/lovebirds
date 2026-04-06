@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { parseReceipt } from '../services/aiParser';
 import { UNITS, VENDORS } from '../constants';
 import { enrichWithMatches } from '../utils/matcher';
+import { useCategories } from '../hooks/useCategories';
 import styles from './ReceiptModal.module.css';
 
 const STEPS = { upload: 'upload', parsing: 'parsing', confirm: 'confirm' };
@@ -18,7 +19,25 @@ function ConfidencePip({ level }) {
   );
 }
 
-export default function ReceiptModal({ products, onConfirm, onClose }) {
+// ── Inline category picker per row ────────────────────────────
+
+function CategoryPicker({ value, onChange, flatList }) {
+  const subcats = flatList.filter(c => c.parent_id !== null);
+  return (
+    <select
+      className={styles.catSelect}
+      value={value ?? ''}
+      onChange={e => onChange(e.target.value ? parseInt(e.target.value) : null)}
+    >
+      <option value="">Uncategorized</option>
+      {subcats.map(c => (
+        <option key={c.id} value={c.id}>{c.label}</option>
+      ))}
+    </select>
+  );
+}
+
+export default function ReceiptModal({ products, masterItems, onConfirm, onClose }) {
   const [step,        setStep]       = useState(STEPS.upload);
   const [file,        setFile]       = useState(null);
   const [preview,     setPreview]    = useState(null);
@@ -28,6 +47,20 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
   const [batchVendor, setBatchVendor] = useState('');
   const [batchDate,   setBatchDate]  = useState(new Date().toISOString().slice(0, 10));
   const fileRef = useRef();
+  const { flatList } = useCategories();
+
+  // ── Suggest category for a receipt item ──────────────────────
+  // 1. Check master items by name match
+  // 2. Check existing inventory match (item.matched)
+  // 3. Fall back to null
+  const suggestCategory = (item) => {
+    if (item.matched?.categoryId) return item.matched.categoryId;
+    const q = (item.nameCanonical || item.name || '').toLowerCase();
+    const master = masterItems.find(m =>
+      m.name.toLowerCase().includes(q) || q.includes(m.name.toLowerCase())
+    );
+    return master?.category_id ?? null;
+  };
 
   const handleFile = (f) => {
     if (!f) return;
@@ -59,9 +92,8 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
         setStep(STEPS.upload);
         return;
       }
-      // Enrich with client-side fuzzy matching (works even if Step 2 matching failed)
-      const matched = enrichWithMatches(parsed, products);
 
+      const matched = enrichWithMatches(parsed, products);
       const enriched = matched.map(item => ({
         ...item,
         selected:     true,
@@ -70,8 +102,10 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
         editNameEn:   item.nameEn || '',
         editQty:      item.quantity,
         editUnit:     item.unit,
+        editCategoryId: suggestCategory(item),
+        isNew:        !item.matched,
       }));
-      // Auto-detect store from first item's vendorGuess
+
       if (!batchVendor && parsed[0]?.vendorGuess) {
         const guessed = VENDORS.find(v =>
           v.name.toLowerCase().includes(parsed[0].vendorGuess.toLowerCase()) ||
@@ -111,7 +145,7 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
         `Review items (${selectedCount} of ${items.length} selected)`
       }
       onClose={onClose}
-      maxWidth={500}
+      maxWidth={520}
     >
       {/* ── UPLOAD STEP ── */}
       {step === STEPS.upload && (
@@ -198,7 +232,7 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
           </div>
 
           <p className={styles.confirmIntro}>
-            Tick the items to add to your inventory. Edit names and quantities if needed.
+            Review what the AI found. Adjust names, quantities, and categories before importing.
           </p>
 
           <div className={styles.itemList}>
@@ -214,6 +248,7 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
                   className={styles.checkbox}
                 />
                 <div className={styles.itemBody}>
+                  {/* Row 1: name + confidence */}
                   <div className={styles.itemTop}>
                     <input
                       className={styles.nameInput}
@@ -223,11 +258,15 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
                     />
                     <ConfidencePip level={item.confidence} />
                   </div>
+
+                  {/* Row 2: original name hint */}
                   {item.editNameEn && item.editNameEn !== item.editName && (
                     <div className={styles.nameHint}>
                       {item.editNameOrig} · <em>{item.editNameEn}</em>
                     </div>
                   )}
+
+                  {/* Row 3: qty + unit + match badge */}
                   <div className={styles.itemBottom}>
                     <input
                       type="number"
@@ -256,6 +295,16 @@ export default function ReceiptModal({ products, onConfirm, onClose }) {
                     ) : (
                       <span className={styles.newBadge}>new item</span>
                     )}
+                  </div>
+
+                  {/* Row 4: category picker */}
+                  <div className={styles.itemCat}>
+                    <span className={styles.catLabel}>Category</span>
+                    <CategoryPicker
+                      value={item.editCategoryId}
+                      onChange={val => updItem(i, 'editCategoryId', val)}
+                      flatList={flatList}
+                    />
                   </div>
                 </div>
               </div>

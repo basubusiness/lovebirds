@@ -204,3 +204,27 @@
   opacity: 0.6;
   font-size: 9px;
 }
+
+/* ── Category row ── */
+.itemCat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.catLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.catSelect {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 0.5px solid var(--border-medium);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: inherit;
+  flex: 1;
+}
