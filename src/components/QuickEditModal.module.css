@@ -1,0 +1,128 @@
+.field {
+  margin-bottom: 1.1rem;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+/* Unit pills */
+.unitPills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.unitPill {
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-size: 13px;
+  border: 0.5px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.unitPill:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+.unitPillActive {
+  background: #1D9E75 !important;
+  color: #fff !important;
+  border-color: #1D9E75 !important;
+}
+
+/* Frequency row */
+.freqRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.numInput {
+  width: 64px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 7px 8px;
+  border: 0.5px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.freqUnit {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.freqEvery {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ratePreview {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.useLearnedBtn {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 0.5px solid #1D9E75;
+  background: #EAF3DE;
+  color: #3B6D11;
+  cursor: pointer;
+  font-style: normal;
+}
+.useLearnedBtn:hover { background: #1D9E75; color: #fff; }
+
+/* Actions */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--border-light);
+  margin-top: 0.5rem;
+}
+
+.fullEditBtn {
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+.fullEditBtn:hover { color: var(--text-primary); text-decoration: underline; background: none; }
+
+.rightActions { display: flex; gap: 8px; }
+
+.saveBtn {
+  background: #1D9E75;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.saveBtn:hover { background: #0F6E56; }

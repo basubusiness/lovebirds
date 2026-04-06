@@ -44,10 +44,37 @@ function EditForm({ item, flatList, onSave, onCancel }) {
   };
   return (
     <div className={styles.editForm}>
+      {/* Frequency — most important, shown first */}
+      <div className={styles.editFormSection}>
+        <div className={styles.editFormSectionLabel}>Consumption frequency</div>
+        <div className={styles.burnEditRow}>
+          <span className={styles.burnLbl}>I use</span>
+          <input type="number" min="0.1" step="0.5" className={styles.burnNum}
+            value={burnQty} onChange={e => setBurnQty(e.target.value)} />
+          <div className={styles.unitInline}>
+            <select value={unit} onChange={e => setUnit(e.target.value)} className={styles.unitSelect}>
+              {UNITS.map(u => <option key={u}>{u}</option>)}
+            </select>
+          </div>
+          <span className={styles.burnLbl}>every</span>
+          <input type="number" min="1" step="1" className={styles.burnNum}
+            value={burnDays} onChange={e => setBurnDays(e.target.value)} />
+          <span className={styles.burnLbl}>days</span>
+          <span className={styles.burnCalc}>
+            = {toRate(burnQty, burnDays).toFixed(3)} {unit}/day
+          </span>
+        </div>
+      </div>
+      {/* Secondary fields */}
       <div className={styles.editGrid}>
         <div className={styles.editField}>
           <label>Name</label>
-          <input value={name} onChange={e => setName(e.target.value)} autoFocus />
+          <input value={name} onChange={e => setName(e.target.value)} />
+        </div>
+        <div className={styles.editField}>
+          <label>Safety stock min ({unit})</label>
+          <input type="number" min="0" step="0.5" value={minQty}
+            onChange={e => setMinQty(e.target.value)} />
         </div>
         <div className={styles.editField}>
           <label>Category</label>
@@ -56,29 +83,6 @@ function EditForm({ item, flatList, onSave, onCancel }) {
             {subcats.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </div>
-        <div className={styles.editField}>
-          <label>Unit</label>
-          <select value={unit} onChange={e => setUnit(e.target.value)}>
-            {UNITS.map(u => <option key={u}>{u}</option>)}
-          </select>
-        </div>
-        <div className={styles.editField}>
-          <label>Safety stock min</label>
-          <input type="number" min="0" step="0.5" value={minQty}
-            onChange={e => setMinQty(e.target.value)} />
-        </div>
-      </div>
-      <div className={styles.burnEditRow}>
-        <span className={styles.burnLbl}>I use</span>
-        <input type="number" min="0.1" step="0.5" className={styles.burnNum}
-          value={burnQty} onChange={e => setBurnQty(e.target.value)} />
-        <span className={styles.burnLbl}>{unit} every</span>
-        <input type="number" min="1" step="1" className={styles.burnNum}
-          value={burnDays} onChange={e => setBurnDays(e.target.value)} />
-        <span className={styles.burnLbl}>days</span>
-        <span className={styles.burnCalc}>
-          = {toRate(burnQty, burnDays).toFixed(3)} {unit}/day
-        </span>
       </div>
       <div className={styles.editActions}>
         <button onClick={onCancel}>Cancel</button>

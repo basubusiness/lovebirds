@@ -327,3 +327,26 @@
   cursor: pointer;
 }
 .saveBtn:hover { background: #0F6E56; }
+
+/* ── Frequency-first edit form additions ── */
+.editFormSection {
+  margin-bottom: 10px;
+}
+.editFormSectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.unitInline { display: flex; align-items: center; }
+.unitSelect {
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 0.5px solid var(--border-medium);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: inherit;
+  width: auto;
+}
