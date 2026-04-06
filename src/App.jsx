@@ -3,6 +3,7 @@ import { useProducts }        from './hooks/useProducts';
 import { useImports }         from './hooks/useImports';
 import { useConsumptionLog }  from './hooks/useConsumptionLog';
 import { useVendorSchedules } from './hooks/useVendorSchedules';
+import { useMasterItems }     from './hooks/useMasterItems';
 import { VENDORS }            from './constants';
 import { getStatus, uid }     from './utils';
 
@@ -12,6 +13,7 @@ import Dashboard              from './components/Dashboard';
 import Inventory              from './components/Inventory';
 import Alerts                 from './components/Alerts';
 import Vendors                from './components/Vendors';
+import PatternsTab            from './components/PatternsTab';
 import ProductModal           from './components/ProductModal';
 import ReceiptModal           from './components/ReceiptModal';
 import ImportsModal           from './components/ImportsModal';
@@ -26,6 +28,7 @@ const TABS = [
   { id: 'inventory', label: 'Inventory' },
   { id: 'alerts',    label: 'Alerts'    },
   { id: 'vendors',   label: 'Vendors'   },
+  { id: 'patterns',  label: 'Patterns'  },
 ];
 
 function AppInner() {
@@ -36,6 +39,8 @@ function AppInner() {
           updateImport }                      = useImports();
   const { burnRates, appendLog }              = useConsumptionLog();
   const { schedules, upsertSchedule }         = useVendorSchedules();
+  const { items: masterItems,
+          loading: masterLoading }            = useMasterItems();
 
   const [tab,      setTab]      = useState('dashboard');
   const [modal,    setModal]    = useState(null);
@@ -50,23 +55,22 @@ function AppInner() {
 
   const notify = msg => setToast(msg);
 
-  // Merge computed burn rates into products (EWMA from log overrides manual
-  // only when there's enough data — manual stays as fallback)
+  // Merge EWMA burn rates into products (falls back to manual if no log data)
   const productsWithBurnRates = products.map(p => ({
     ...p,
     burnRate: burnRates[p.id] ?? p.burnRate,
   }));
 
-  /* product CRUD */
+  /* ── product CRUD ── */
   const saveProduct = useCallback((p) => {
     setProducts(prev => {
       const idx = prev.findIndex(x => x.id === p.id);
       if (idx >= 0) { const n = [...prev]; n[idx] = p; return n; }
-      return [...prev, { ...p, id: uid() }];
+      return [...prev, { ...p, id: p.id || uid() }];
     });
     setModal(null);
-    notify(modal?.id ? 'Product updated' : 'Product added');
-  }, [modal, setProducts]);
+    notify(p.id && products.find(x => x.id === p.id) ? 'Product updated' : 'Product added');
+  }, [setProducts, products]);
 
   const deleteProduct = useCallback((id) => {
     setProducts(prev => prev.filter(p => p.id !== id));
@@ -74,7 +78,23 @@ function AppInner() {
     notify('Product removed');
   }, [setProducts]);
 
-  /* consume — logs to DB, updates qty */
+  /* ── Accept learned rate — writes back as manual baseline ── */
+  const acceptLearnedRate = useCallback((productId, learnedRate) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id !== productId) return p;
+      // Convert rate to a human-readable interval (round to nearest day)
+      const intervalDays = Math.max(1, Math.round(1 / learnedRate));
+      return {
+        ...p,
+        burnRate:               learnedRate,
+        manualBurnQty:          1,
+        manualBurnIntervalDays: intervalDays,
+      };
+    }));
+    notify('Consumption pattern updated from system learning');
+  }, [setProducts]);
+
+  /* ── consume / restock / finished ── */
   const logConsume = useCallback(async (qty) => {
     const p = consume;
     setProducts(prev => prev.map(x =>
@@ -87,7 +107,6 @@ function AppInner() {
     setConsume(null);
   }, [consume, setProducts, appendLog]);
 
-  /* restock — logs to DB, updates qty */
   const logRestock = useCallback(async (qty) => {
     const p = restock;
     setProducts(prev => prev.map(x =>
@@ -100,7 +119,6 @@ function AppInner() {
     setRestock(null);
   }, [restock, setProducts, appendLog]);
 
-  /* finished — sets qty to 0, logs full delta, recalibrates burn rate */
   const logFinished = useCallback(async (qty) => {
     const p = finished;
     setProducts(prev => prev.map(x =>
@@ -111,7 +129,7 @@ function AppInner() {
     setFinished(null);
   }, [finished, setProducts, appendLog]);
 
-  /* receipt import */
+  /* ── receipt import ── */
   const handleReceiptConfirm = useCallback(async (parsedItems) => {
     let added = 0, updated = 0;
     const historyItems = [];
@@ -139,16 +157,18 @@ function AppInner() {
           updated++;
         } else {
           next.push({
-            id:         uid(),
-            name:       item.editName,
-            cat:        'Other',
-            categoryId: null,
-            unit:       item.editUnit,
-            minQty:     1,
-            currentQty: item.editQty,
-            vendor:     item.batchVendor || 'cactus',
-            burnRate:   0,
-            note:       '',
+            id:                     uid(),
+            name:                   item.editName,
+            cat:                    'Other',
+            categoryId:             item.editCategoryId ?? null,
+            unit:                   item.editUnit,
+            minQty:                 1,
+            currentQty:             item.editQty,
+            vendor:                 item.batchVendor || 'cactus',
+            burnRate:               0,
+            manualBurnQty:          null,
+            manualBurnIntervalDays: null,
+            note:                   '',
           });
           added++;
         }
@@ -218,7 +238,6 @@ function AppInner() {
         {tab === 'dashboard' && (
           <Dashboard
             products={productsWithBurnRates}
-            vendors={VENDORS}
             schedules={schedules}
             onOpenSettings={() => setSettings(true)}
           />
@@ -233,16 +252,32 @@ function AppInner() {
             onAdd={() => setModal({})}
           />
         )}
-        {tab === 'alerts'  && <Alerts   products={productsWithBurnRates} />}
-        {tab === 'vendors' && <Vendors  products={productsWithBurnRates} />}
+        {tab === 'alerts'   && <Alerts  products={productsWithBurnRates} />}
+        {tab === 'vendors'  && <Vendors products={productsWithBurnRates} />}
+        {tab === 'patterns' && (
+          <PatternsTab
+            products={productsWithBurnRates}
+            burnRates={burnRates}
+            onAcceptLearned={acceptLearnedRate}
+            onEdit={p => setModal(p)}
+          />
+        )}
       </main>
 
+      {/* ── Modals ── */}
       {modal !== null && (
         <ProductModal
           product={modal?.id ? modal : null}
+          masterItems={masterItems}
+          loadingMaster={masterLoading}
+          learnedRate={modal?.id ? burnRates[modal.id] : null}
           onSave={saveProduct}
           onDelete={deleteProduct}
           onClose={() => setModal(null)}
+          onAcceptLearned={(rate) => {
+            acceptLearnedRate(modal.id, rate);
+            setModal(null);
+          }}
         />
       )}
       {consume && (
@@ -257,6 +292,7 @@ function AppInner() {
       {receipt && (
         <ReceiptModal
           products={productsWithBurnRates}
+          masterItems={masterItems}
           onConfirm={handleReceiptConfirm}
           onClose={() => setReceipt(false)}
         />
