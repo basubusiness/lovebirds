@@ -6,6 +6,7 @@ import { useVendorSchedules } from './hooks/useVendorSchedules';
 import { useMasterItems }     from './hooks/useMasterItems';
 
 import { getStatus, uid }     from './utils';
+import { useCategories }      from './hooks/useCategories';
 
 import AuthGate, { useAuth }  from './components/AuthGate';
 import AccountModal           from './components/AccountModal';
@@ -21,6 +22,7 @@ import SettingsModal          from './components/SettingsModal';
 import QuickEditModal         from './components/QuickEditModal';
 import { ConsumeModal, RestockModal, FinishedModal } from './components/QuickModals';
 import Toast                  from './components/Toast';
+import CategorySidebar        from './components/CategorySidebar';
 
 import styles from './App.module.css';
 
@@ -57,6 +59,9 @@ function AppInner() {
   const [history,  setHistory]  = useState(false);
   const [settings, setSettings] = useState(false);
   const [toast,    setToast]    = useState(null);
+  const [sidebarCat, setSidebarCat] = useState(null); // active sidebar category id
+
+  const { topLevel, childrenOf, byId } = useCategories();
 
   const notify = msg => setToast(msg);
 
@@ -217,6 +222,22 @@ function AppInner() {
 
   const alertCount = productsWithBurnRates.filter(p => getStatus(p) !== 'ok').length;
 
+  // Count products per category for inventory sidebar
+  const itemsByCategory = {};
+  for (const p of productsWithBurnRates) {
+    const key = p.categoryId ? p.categoryId : 'uncategorized';
+    itemsByCategory[key] = (itemsByCategory[key] ?? 0) + 1;
+  }
+
+  // Count master items per category for patterns sidebar
+  const masterItemsByCategory = {};
+  for (const m of masterItems) {
+    const sub    = m.category_id ? byId(m.category_id) : null;
+    const topId  = sub?.parent_id ?? sub?.id ?? 'uncategorized';
+    masterItemsByCategory[m.category_id ?? 'uncategorized'] =
+      (masterItemsByCategory[m.category_id ?? 'uncategorized'] ?? 0) + 1;
+  }
+
   if (loading) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>
@@ -259,6 +280,25 @@ function AppInner() {
         </div>
       </header>
 
+      <div className={styles.appBody}>
+        {/* Sidebar — shown on Inventory and Patterns tabs */}
+        {(tab === 'inventory' || tab === 'patterns') && (
+          <CategorySidebar
+            topLevel={topLevel}
+            childrenOf={childrenOf}
+            itemsByCategory={tab === 'patterns' ? masterItemsByCategory : itemsByCategory}
+            activeId={sidebarCat}
+            onSelect={(id) => {
+              setSidebarCat(id);
+              // Scroll to section
+              setTimeout(() => {
+                const el = document.getElementById(`cat-section-${id ?? 'all'}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 50);
+            }}
+          />
+        )}
+
       <main className={styles.main}>
         {tab === 'dashboard' && (
           <Dashboard
@@ -293,6 +333,7 @@ function AppInner() {
           />
         )}
       </main>
+      </div> {/* close appBody */}
 
       {/* ── Modals ── */}
       {modal !== null && (

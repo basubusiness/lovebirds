@@ -1,3 +1,5 @@
+*, *::before, *::after { box-sizing: border-box; }
+
 .app {
   min-height: 100vh;
   background: var(--bg-tertiary);
@@ -9,7 +11,7 @@
 .header {
   background: var(--bg-primary);
   border-bottom: 0.5px solid var(--border-light);
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -71,13 +73,82 @@
   line-height: 1.4;
 }
 
-/* ── Main ────────────────────────────────── */
+/* ── Layout: sidebar + main ──────────────── */
+.appBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 1.25rem 0.75rem 1.25rem 1.25rem;
+  border-right: 0.5px solid var(--border-light);
+  position: sticky;
+  top: 53px; /* header height */
+  height: calc(100vh - 53px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: var(--bg-primary);
+}
+.sidebar::-webkit-scrollbar { display: none; }
+
+.sidebarSection { margin-bottom: 1.25rem; }
+
+.sidebarTopCat {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sidebarTopCatIcon { font-size: 13px; }
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.sidebarItem:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.sidebarItemActive {
+  background: #EAF3DE !important;
+  color: #1D9E75 !important;
+  font-weight: 500;
+}
+.sidebarCount {
+  font-size: 10px;
+  background: var(--bg-secondary);
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+
+/* ── Main content ────────────────────────── */
 .main {
   flex: 1;
-  padding: 1.25rem 1rem;
-  max-width: 740px;
-  width: 100%;
-  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .headerActions { display: flex; gap: 6px; margin-left: auto; }
@@ -93,11 +164,15 @@
 }
 .iconBtn:hover { background: var(--bg-secondary); color: var(--text-primary); }
 
+.historyCount { font-size: 0.75rem; opacity: 0.7; }
+
 /* ── Mobile ──────────────────────────────── */
-@media (max-width: 500px) {
+@media (max-width: 768px) {
   .header { padding: 0.6rem 0.75rem; gap: 10px; }
   .main   { padding: 1rem 0.75rem; }
   .navBtn { padding: 5px 10px; font-size: 11px; }
+  .sidebar { display: none; } /* sidebar hidden on mobile */
+  .appBody { flex-direction: column; }
 }
 
 /* ── Avatar button ───────────────────────── */
@@ -129,10 +204,4 @@
   font-weight: 600;
   color: #1D9E75;
   line-height: 1;
-}
-
-/* History button count badge */
-.historyCount {
-  font-size: 0.75rem;
-  opacity: 0.7;
 }
