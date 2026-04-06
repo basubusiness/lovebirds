@@ -159,7 +159,7 @@ function CategoryGroup({ topCat, items, view, linkedProducts, burnRates,
   const inStockCount = items.filter(m => linkedCount(m.id) > 0).length;
 
   return (
-    <div className={styles.catGroup}>
+    <div className={styles.catGroup} id={`cat-section-${topCat.id}`}>
       <button className={styles.catHeader} onClick={() => setOpen(o => !o)}>
         <span className={styles.catIcon}>{topCat.icon}</span>
         <span className={styles.catName}>{topCat.name}</span>

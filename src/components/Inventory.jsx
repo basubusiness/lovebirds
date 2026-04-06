@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { getStatus, daysLeft, stockPct, barColor, vendorOf } from '../utils';
 import { useCategories } from '../hooks/useCategories';
 import styles from './Inventory.module.css';
@@ -295,47 +295,8 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
     exitSelect();
   };
 
-  // Category nav strip
-  const catRefs = useRef({});
-  const scrollToCategory = (id) => {
-    const el = catRefs.current[id];
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <div>
-      {/* Category nav strip */}
-      {!catsLoading && topLevel.length > 0 && (
-        <div className={styles.catStrip}>
-          {topLevel.map(topCat => {
-            const subs = childrenOf(topCat.id);
-            const allSubIds = subs.map(s => s.id);
-            const count = shown.filter(p =>
-              p.categoryId === topCat.id || allSubIds.includes(p.categoryId)
-            ).length;
-            if (count === 0) return null;
-            return (
-              <button
-                key={topCat.id}
-                className={styles.catStripBtn}
-                onClick={() => scrollToCategory(topCat.id)}
-              >
-                <span>{topCat.icon}</span>
-                <span className={styles.catStripName}>{topCat.name}</span>
-                <span className={styles.catStripCount}>{count}</span>
-              </button>
-            );
-          })}
-          {uncategorized.length > 0 && (
-            <button className={styles.catStripBtn} onClick={() => scrollToCategory('uncategorized')}>
-              <span>📦</span>
-              <span className={styles.catStripName}>Other</span>
-              <span className={styles.catStripCount}>{uncategorized.length}</span>
-            </button>
-          )}
-        </div>
-      )}
-
       <div className={styles.toolbar}>
         <input
           className={styles.search}
@@ -412,7 +373,7 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
               p.categoryId === topCat.id || allSubIds.includes(p.categoryId)
             );
             return (
-              <div key={topCat.id} ref={el => { catRefs.current[topCat.id] = el; }}>
+              <div key={topCat.id} id={`cat-section-${topCat.id}`}>
                 <CategorySection
                   topCat={topCat}
                   subCats={subs}
@@ -430,7 +391,7 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
             );
           })}
           {uncategorized.length > 0 && (
-            <div ref={el => { catRefs.current['uncategorized'] = el; }}>
+            <div id="cat-section-uncategorized">
             <CategorySection
               topCat={{ id: null, name: 'Uncategorized', icon: '📦' }}
               subCats={[]}

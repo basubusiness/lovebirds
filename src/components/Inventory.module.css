@@ -547,49 +547,7 @@
 .checkBoxOn { background: #E24B4A; border-color: #E24B4A; }
 .checkMark { color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
 
-/* ── Category nav strip ──────────────────────────────────────── */
-.catStrip {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 0 0 12px;
-  scrollbar-width: none;
-  flex-wrap: nowrap;
-}
-.catStrip::-webkit-scrollbar { display: none; }
 
-.catStripBtn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 0.5px solid var(--border-medium);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: all 0.12s;
-}
-.catStripBtn:hover {
-  background: var(--bg-secondary);
-  border-color: #1D9E75;
-  color: var(--text-primary);
-}
-.catStripName { font-weight: 500; }
-.catStripCount {
-  background: var(--bg-secondary);
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 8px;
-  color: var(--text-secondary);
-}
-
-/* Mobile: strip becomes scrollable row */
-@media (max-width: 480px) {
-  .catStrip { padding-bottom: 10px; }
   .catStripBtn { font-size: 11px; padding: 5px 10px; }
 }
 
