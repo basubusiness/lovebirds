@@ -28,11 +28,6 @@ export function useMasterItems() {
   useEffect(() => {
     if (_cache) {
 
-      const urls = {};
-      for (const m of _cache) {
-        if (m.image_url) urls[m.id] = m.image_url;
-      }
-      setImageUrls(urls);
       return;
     }
     if (!userId) return;
@@ -46,7 +41,6 @@ export function useMasterItems() {
         _cache = loaded;
         setItems(loaded);
         setLoading(false);
-        setImageUrls(urls);
       });
   }, [userId]);
 
