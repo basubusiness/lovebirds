@@ -1,63 +1,62 @@
 /**
  * useProductImages.js
  *
- * Fetches product images from Unsplash/Wikipedia and stores them
- * directly on the user-owned products table (not master_items).
- *
- * Why products and not master_items:
- *   Seed master_items have user_id = null so RLS blocks updates.
- *   products are fully user-owned — no RLS issues.
- *
- * Returns: imageUrls map { productId → url }
- * Call fetchMissing(products) after products load to populate.
+ * Fetches product images from Unsplash/Wikipedia and stores on products table.
+ * Uses a proper useEffect triggered by products loading — no race condition.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-export function useProductImages() {
-  const [imageUrls, setImageUrls] = useState({}); // productId → url
+export function useProductImages(products) {
+  // productId → url (starts from whatever is in products.image_url)
+  const [imageUrls, setImageUrls] = useState({});
 
-  // Seed from already-fetched products (call once after products load)
-  const seedFromProducts = useCallback((products) => {
+  // Whenever products array changes, seed from DB values and fetch missing
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+
+    // Seed from already-stored values
     const urls = {};
     for (const p of products) {
       if (p.image_url) urls[p.id] = p.image_url;
     }
     setImageUrls(urls);
-  }, []);
 
-  // Fetch images for products that don't have one yet
-  const fetchMissing = useCallback(async (products) => {
-    const missing = products.filter(p => !p.image_url).slice(0, 15);
+    // Fetch missing ones
+    const missing = products.filter(p => !p.image_url);
     if (missing.length === 0) return;
 
-    console.log('[IMG] Fetching images for', missing.length, 'products:', missing.map(p => p.name));
+    console.log('[IMG] Fetching images for', missing.length, 'products');
 
-    for (const p of missing) {
+    // Fetch sequentially to avoid rate limiting — 1 per 200ms
+    let i = 0;
+    const fetchNext = async () => {
+      if (i >= missing.length) return;
+      const p = missing[i++];
       try {
         const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(p.name + ' food')}`);
         const data = await res.json();
         if (data.url) {
-          // Save to products table (user-owned — RLS allows this)
-          await supabase
-            .from('products')
-            .update({ image_url: data.url })
-            .eq('id', p.id);
-
+          await supabase.from('products').update({ image_url: data.url }).eq('id', p.id);
           setImageUrls(prev => ({ ...prev, [p.id]: data.url }));
-          console.log('[IMG] Saved image for product', p.name);
+          console.log('[IMG] Got image for', p.name);
         }
       } catch (e) {
         console.warn('[IMG] Failed for', p.name, e.message);
       }
-    }
-  }, []);
+      setTimeout(fetchNext, 200);
+    };
+    fetchNext();
+  // Only re-run when product IDs change (not on every render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products.map(p => p.id).join(',')]);
 
-  // Allow manual set (for user uploads via QuickEditModal)
-  const setImageUrl = useCallback((productId, url) => {
+  // Allow manual override (user upload via QuickEditModal)
+  const setImageUrl = useCallback(async (productId, url) => {
     setImageUrls(prev => ({ ...prev, [productId]: url }));
+    await supabase.from('products').update({ image_url: url }).eq('id', productId);
   }, []);
 
-  return { imageUrls, seedFromProducts, fetchMissing, setImageUrl };
+  return { imageUrls, setImageUrl };
 }
