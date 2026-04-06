@@ -48,6 +48,9 @@ function AppInner() {
           addMasterItem,
           updateMasterItem,
           deleteMasterItem }              = useMasterItems();
+  const { imageUrls,
+          seedFromProducts,
+          fetchMissing }                 = useProductImages();
 
   const [tab,      setTab]      = useState('dashboard');
   const [modal,    setModal]    = useState(null);
