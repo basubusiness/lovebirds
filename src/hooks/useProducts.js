@@ -21,6 +21,7 @@ function fromDb(row) {
     manualBurnQty:           row.manual_burn_qty ?? null,
     manualBurnIntervalDays:  row.manual_burn_interval_days ?? null,
     masterItemId:            row.master_item_id ?? null,
+    image_url:               row.image_url ?? null,
     note:                    row.note,
   };
 }
@@ -40,6 +41,7 @@ function toDb(p, userId) {
     manual_burn_qty:            p.manualBurnQty ?? null,
     manual_burn_interval_days:  p.manualBurnIntervalDays ?? null,
     master_item_id:             p.masterItemId ?? null,
+    image_url:                  p.image_url ?? null,
     note:                       p.note ?? '',
   };
 }

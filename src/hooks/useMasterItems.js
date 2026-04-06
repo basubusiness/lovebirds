@@ -14,14 +14,7 @@ export function useMasterItems() {
   const [items,     setItems]     = useState(_cache || []);
   const [loading,   setLoading]   = useState(!_cache);
   const [userId,    setUserId]    = useState(null);
-  // Seed imageUrls from cache immediately (cache persists across renders)
-  const [imageUrls, setImageUrls] = useState(() => {
-    const urls = {};
-    for (const m of (_cache || [])) {
-      if (m.image_url) urls[m.id] = m.image_url;
-    }
-    return urls;
-  });
+
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
@@ -34,7 +27,7 @@ export function useMasterItems() {
   // Effect 1: fetch from DB (skips if already cached)
   useEffect(() => {
     if (_cache) {
-      // Cache exists — just seed imageUrls from it
+
       const urls = {};
       for (const m of _cache) {
         if (m.image_url) urls[m.id] = m.image_url;
@@ -53,49 +46,11 @@ export function useMasterItems() {
         _cache = loaded;
         setItems(loaded);
         setLoading(false);
-        const urls = {};
-        for (const m of loaded) {
-          if (m.image_url) urls[m.id] = m.image_url;
-        }
-        console.log('[IMG] Seeded imageUrls from DB fetch. Count:', Object.keys(urls).length);
         setImageUrls(urls);
       });
   }, [userId]);
 
-  // Effect 2: fetch missing images
-  useEffect(() => {
-    console.log('[IMG] Effect 2 fired. userId:', userId, 'items.length:', items.length);
-    if (!userId || items.length === 0) {
-      console.log('[IMG] Skipping — no userId or no items');
-      return;
-    }
-    const missing = items.filter(m => !m.image_url).slice(0, 5); // limit to 5 for debug
-    console.log('[IMG] Items without image_url:', missing.length, missing.map(m => m.name));
-    if (missing.length === 0) {
-      console.log('[IMG] All items already have image_url cached');
-      return;
-    }
-    missing.forEach(async (m) => {
-      try {
-        const url = `/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`;
-        console.log('[IMG] Fetching:', url);
-        const res  = await fetch(url);
-        console.log('[IMG] Response status:', res.status, 'for', m.name);
-        const data = await res.json();
-        console.log('[IMG] Response data:', data, 'for', m.name);
-        if (data.url) {
-          setImageUrls(prev => ({ ...prev, [m.id]: data.url }));
-          await supabase.from('master_items').update({ image_url: data.url }).eq('id', m.id);
-          _cache = (_cache || []).map(x => x.id === m.id ? { ...x, image_url: data.url } : x);
-          console.log('[IMG] Saved image for', m.name, ':', data.url);
-        } else {
-          console.warn('[IMG] No url returned for', m.name, '— full response:', data);
-        }
-      } catch (e) {
-        console.error('[IMG] Fetch failed for', m.name, ':', e.message);
-      }
-    });
-  }, [userId, items]);
+
 
   const addMasterItem = useCallback(async (item) => {
     if (!userId) return null;
@@ -149,7 +104,7 @@ export function useMasterItems() {
     ) ?? null;
   }, [items]);
 
-  return { items, loading, imageUrls, addMasterItem, updateMasterItem, deleteMasterItem, findByName };
+  return { items, loading, addMasterItem, updateMasterItem, deleteMasterItem, findByName };
 }
 
 /**
