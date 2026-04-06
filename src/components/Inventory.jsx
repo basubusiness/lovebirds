@@ -6,19 +6,44 @@ import styles from './Inventory.module.css';
 // ── Single product card ───────────────────────────────────────
 
 function ProductCard({ p, catIcon, selectMode, selected, onToggleSelect, onEdit, onConsume, onRestock, onFinished }) {
-  const st  = getStatus(p);
-  const dl  = daysLeft(p);
-  const v   = vendorOf(p.vendor);
-  const pct = stockPct(p);
+  const st       = getStatus(p);
+  const dl       = daysLeft(p);
+  const v        = vendorOf(p.vendor);
+  const pct      = stockPct(p);
   const isUrgent = dl !== null && dl <= v.leadDays;
+  const imgUrl   = p._imageUrl ?? null;
+  const isSelected = selected?.has(p.id);
 
   return (
-    <div className={`${styles.card} ${styles['card_' + st]}`}>
-      <div className={styles.cardTop}>
-        <span className={styles.cardEmoji}>{catIcon}</span>
-        <span className={styles.cardName}>{p.name}</span>
-        <span className={`${styles.statusDot} ${styles['dot_' + st]}`} />
-      </div>
+    <div className={`${styles.card} ${styles['card_' + st]} ${isSelected ? styles.cardSelected : ''}`}
+         style={{ position: 'relative' }}>
+
+      {/* Corner checkbox in select mode */}
+      {selectMode && (
+        <div className={styles.checkCorner} onClick={() => onToggleSelect(p.id)}>
+          <div className={`${styles.checkBox} ${isSelected ? styles.checkBoxOn : ''}`}>
+            {isSelected && <span className={styles.checkMark}>✓</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Image header — 70px photo with name overlaid, or plain emoji row */}
+      {imgUrl ? (
+        <div className={styles.cardImageHeader}>
+          <img src={imgUrl} alt={p.name} className={styles.cardImage} />
+          <div className={styles.cardImageOverlay}>
+            <span className={styles.cardEmojiOverlay}>{catIcon}</span>
+            <span className={styles.cardNameOverlay}>{p.name}</span>
+            <span className={`${styles.statusDot} ${styles['dot_' + st]}`} style={{ flexShrink: 0 }} />
+          </div>
+        </div>
+      ) : (
+        <div className={styles.cardTop}>
+          <span className={styles.cardEmoji}>{catIcon}</span>
+          <span className={styles.cardName}>{p.name}</span>
+          <span className={`${styles.statusDot} ${styles['dot_' + st]}`} />
+        </div>
+      )}
 
       <div className={styles.barWrap}>
         <div className={styles.bar} style={{ width: pct + '%', background: barColor(st) }} />
@@ -51,7 +76,8 @@ function ProductCard({ p, catIcon, selectMode, selected, onToggleSelect, onEdit,
         </div>
       )}
       {selectMode && (
-        <div className={styles.cardSelectOverlay} onClick={() => onToggleSelect(p.id)} />
+        <div className={styles.cardSelectOverlay} onClick={() => onToggleSelect(p.id)}
+          style={{ position:'absolute', inset:0, cursor:'pointer', borderRadius:12, zIndex:1 }} />
       )}
     </div>
   );
