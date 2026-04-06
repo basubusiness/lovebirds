@@ -14,7 +14,14 @@ export function useMasterItems() {
   const [items,     setItems]     = useState(_cache || []);
   const [loading,   setLoading]   = useState(!_cache);
   const [userId,    setUserId]    = useState(null);
-  const [imageUrls, setImageUrls] = useState({}); // masterItemId → url
+  // Seed imageUrls from cache immediately (cache persists across renders)
+  const [imageUrls, setImageUrls] = useState(() => {
+    const urls = {};
+    for (const m of (_cache || [])) {
+      if (m.image_url) urls[m.id] = m.image_url;
+    }
+    return urls;
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
@@ -24,8 +31,17 @@ export function useMasterItems() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Effect 1: fetch from DB (skips if already cached)
   useEffect(() => {
-    if (_cache) return;
+    if (_cache) {
+      // Cache exists — just seed imageUrls from it
+      const urls = {};
+      for (const m of _cache) {
+        if (m.image_url) urls[m.id] = m.image_url;
+      }
+      setImageUrls(urls);
+      return;
+    }
     if (!userId) return;
     supabase
       .from('master_items')
@@ -37,28 +53,32 @@ export function useMasterItems() {
         _cache = loaded;
         setItems(loaded);
         setLoading(false);
-        // Populate imageUrls from cached DB values immediately
         const urls = {};
         for (const m of loaded) {
           if (m.image_url) urls[m.id] = m.image_url;
         }
         setImageUrls(urls);
-        // Eagerly fetch images for items without one (fire-and-forget, limit to 20)
-        const missing = loaded.filter(m => !m.image_url).slice(0, 20);
-        missing.forEach(async (m) => {
-          try {
-            const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`);
-            const data = await res.json();
-            if (data.url) {
-              setImageUrls(prev => ({ ...prev, [m.id]: data.url }));
-              await supabase.from('master_items').update({ image_url: data.url }).eq('id', m.id);
-              // Update cache
-              _cache = _cache.map(x => x.id === m.id ? { ...x, image_url: data.url } : x);
-            }
-          } catch {}
-        });
       });
   }, [userId]);
+
+  // Effect 2: fetch missing images — runs whenever items are loaded
+  // Separated from Effect 1 so it always runs even when cache is hit
+  useEffect(() => {
+    if (!userId || items.length === 0) return;
+    const missing = items.filter(m => !m.image_url).slice(0, 20);
+    if (missing.length === 0) return;
+    missing.forEach(async (m) => {
+      try {
+        const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(m.name + ' food')}`);
+        const data = await res.json();
+        if (data.url) {
+          setImageUrls(prev => ({ ...prev, [m.id]: data.url }));
+          await supabase.from('master_items').update({ image_url: data.url }).eq('id', m.id);
+          _cache = (_cache || []).map(x => x.id === m.id ? { ...x, image_url: data.url } : x);
+        }
+      } catch {}
+    });
+  }, [userId, items]);
 
   const addMasterItem = useCallback(async (item) => {
     if (!userId) return null;
