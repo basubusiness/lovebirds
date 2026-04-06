@@ -232,8 +232,6 @@ function AppInner() {
   // Count master items per category for patterns sidebar
   const masterItemsByCategory = {};
   for (const m of masterItems) {
-    const sub    = m.category_id ? byId(m.category_id) : null;
-    const topId  = sub?.parent_id ?? sub?.id ?? 'uncategorized';
     masterItemsByCategory[m.category_id ?? 'uncategorized'] =
       (masterItemsByCategory[m.category_id ?? 'uncategorized'] ?? 0) + 1;
   }
