@@ -57,6 +57,7 @@ export function useMasterItems() {
         for (const m of loaded) {
           if (m.image_url) urls[m.id] = m.image_url;
         }
+        console.log('[IMG] Seeded imageUrls from DB fetch. Count:', Object.keys(urls).length);
         setImageUrls(urls);
       });
   }, [userId]);
