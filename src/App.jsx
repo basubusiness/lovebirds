@@ -60,10 +60,12 @@ function AppInner() {
 
   const notify = msg => setToast(msg);
 
-  // Merge EWMA burn rates into products (falls back to manual if no log data)
+  // Merge EWMA burn rates + master item image URLs into products
+  const masterItemMap = Object.fromEntries(masterItems.map(m => [m.id, m]));
   const productsWithBurnRates = products.map(p => ({
     ...p,
     burnRate: burnRates[p.id] ?? p.burnRate,
+    _imageUrl: p.masterItemId ? (masterItemMap[p.masterItemId]?.image_url ?? null) : null,
   }));
 
   /* ── product CRUD ── */
@@ -311,6 +313,7 @@ function AppInner() {
       {quickEdit && (
         <QuickEditModal
           product={quickEdit}
+          masterItems={masterItems}
           learnedRate={burnRates[quickEdit.id]}
           onSave={(updated) => { saveProduct(updated); setQuickEdit(null); }}
           onFullEdit={() => { setModal(quickEdit); setQuickEdit(null); }}
