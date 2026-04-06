@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { getStatus, daysLeft, stockPct, barColor, vendorOf } from '../utils';
 import { useCategories } from '../hooks/useCategories';
 import styles from './Inventory.module.css';
@@ -295,8 +295,47 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
     exitSelect();
   };
 
+  // Category nav strip
+  const catRefs = useRef({});
+  const scrollToCategory = (id) => {
+    const el = catRefs.current[id];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div>
+      {/* Category nav strip */}
+      {!catsLoading && topLevel.length > 0 && (
+        <div className={styles.catStrip}>
+          {topLevel.map(topCat => {
+            const subs = childrenOf(topCat.id);
+            const allSubIds = subs.map(s => s.id);
+            const count = shown.filter(p =>
+              p.categoryId === topCat.id || allSubIds.includes(p.categoryId)
+            ).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={topCat.id}
+                className={styles.catStripBtn}
+                onClick={() => scrollToCategory(topCat.id)}
+              >
+                <span>{topCat.icon}</span>
+                <span className={styles.catStripName}>{topCat.name}</span>
+                <span className={styles.catStripCount}>{count}</span>
+              </button>
+            );
+          })}
+          {uncategorized.length > 0 && (
+            <button className={styles.catStripBtn} onClick={() => scrollToCategory('uncategorized')}>
+              <span>📦</span>
+              <span className={styles.catStripName}>Other</span>
+              <span className={styles.catStripCount}>{uncategorized.length}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       <div className={styles.toolbar}>
         <input
           className={styles.search}
@@ -373,23 +412,25 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
               p.categoryId === topCat.id || allSubIds.includes(p.categoryId)
             );
             return (
-              <CategorySection
-                key={topCat.id}
-                topCat={topCat}
-                subCats={subs}
-                products={catProducts}
-                overallView={overallView}
-                selectMode={selectMode}
-                selected={selected}
-                onToggleSelect={toggleSelect}
-                onEdit={onEdit}
-                onConsume={onConsume}
-                onRestock={onRestock}
-                onFinished={onFinished}
-              />
+              <div key={topCat.id} ref={el => { catRefs.current[topCat.id] = el; }}>
+                <CategorySection
+                  topCat={topCat}
+                  subCats={subs}
+                  products={catProducts}
+                  overallView={overallView}
+                  selectMode={selectMode}
+                  selected={selected}
+                  onToggleSelect={toggleSelect}
+                  onEdit={onEdit}
+                  onConsume={onConsume}
+                  onRestock={onRestock}
+                  onFinished={onFinished}
+                />
+              </div>
             );
           })}
           {uncategorized.length > 0 && (
+            <div ref={el => { catRefs.current['uncategorized'] = el; }}>
             <CategorySection
               topCat={{ id: null, name: 'Uncategorized', icon: '📦' }}
               subCats={[]}
@@ -403,6 +444,7 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
               onRestock={onRestock}
               onFinished={onFinished}
             />
+            </div>
           )}
         </div>
       )}

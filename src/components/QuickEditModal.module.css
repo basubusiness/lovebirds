@@ -1,6 +1,4 @@
-.field {
-  margin-bottom: 1.1rem;
-}
+.field { margin-bottom: 1.1rem; }
 
 .label {
   display: block;
@@ -12,12 +10,118 @@
   margin-bottom: 8px;
 }
 
-/* Unit pills */
-.unitPills {
+/* ── Image section ── */
+.imageSection { margin-bottom: 1.1rem; }
+
+.imageWrap { position: relative; border-radius: 10px; overflow: hidden; }
+
+.productImage {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+}
+
+.replacePhotoBtn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.replacePhotoBtn:hover { background: rgba(0,0,0,0.75); }
+
+.imagePlaceholder {
+  width: 100%;
+  height: 80px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
   display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imgSpinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-medium);
+  border-top-color: #1D9E75;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.addPhotoBtn {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--border-medium);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+.addPhotoBtn:hover { background: var(--bg-primary); border-color: #1D9E75; color: #1D9E75; }
+
+/* ── Name + category suggestion ── */
+.nameInput {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 10px;
+  border: 0.5px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: inherit;
+}
+
+.catSuggest {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
   flex-wrap: wrap;
 }
+.catSuggestBtn {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 0.5px solid #1D9E75;
+  background: #EAF3DE;
+  color: #3B6D11;
+  cursor: pointer;
+}
+.catSuggestBtn:hover { background: #1D9E75; color: #fff; }
+.catSuggestDismiss {
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0.5;
+}
+.catSuggestDismiss:hover { opacity: 1; }
+
+.catAccepted {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #1D9E75;
+}
+
+/* ── Unit pills ── */
+.unitPills { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .unitPill {
   padding: 5px 13px;
@@ -29,18 +133,14 @@
   cursor: pointer;
   transition: all 0.1s;
 }
-.unitPill:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border-color: var(--border-medium);
-}
+.unitPill:hover { background: var(--bg-primary); color: var(--text-primary); }
 .unitPillActive {
   background: #1D9E75 !important;
   color: #fff !important;
   border-color: #1D9E75 !important;
 }
 
-/* Frequency row */
+/* ── Frequency row ── */
 .freqRow {
   display: flex;
   align-items: center;
@@ -60,15 +160,8 @@
   color: var(--text-primary);
 }
 
-.freqUnit {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.freqEvery {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
+.freqUnit  { font-size: 14px; color: var(--text-secondary); }
+.freqEvery { font-size: 13px; color: var(--text-secondary); }
 
 .ratePreview {
   margin-top: 8px;
@@ -93,7 +186,7 @@
 }
 .useLearnedBtn:hover { background: #1D9E75; color: #fff; }
 
-/* Actions */
+/* ── Actions ── */
 .actions {
   display: flex;
   align-items: center;
