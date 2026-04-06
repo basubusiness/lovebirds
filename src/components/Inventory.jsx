@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { getStatus, daysLeft, stockPct, barColor, vendorOf } from '../utils';
 import { useCategories } from '../hooks/useCategories';
 import styles from './Inventory.module.css';
