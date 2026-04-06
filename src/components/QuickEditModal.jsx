@@ -11,7 +11,7 @@
  * "More settings →" opens the full ProductModal.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Modal from './Modal';
 import { UNITS } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -66,7 +66,6 @@ export default function QuickEditModal({
   const [minQty,      setMinQty]      = useState(product.minQty || 1);
   const [catSuggest,  setCatSuggest]  = useState(null);  // { id, name } suggested category
   const [imageUrl,    setImageUrl]    = useState(product._imageUrl ?? null);
-  const [imgLoading,  setImgLoading]  = useState(false);
   const [uploading,   setUploading]   = useState(false);
   const fileRef = useRef();
   const debounceRef = useRef();
@@ -133,11 +132,7 @@ export default function QuickEditModal({
 
       {/* Image header */}
       <div className={styles.imageSection}>
-        {imgLoading ? (
-          <div className={styles.imagePlaceholder}>
-            <span className={styles.imgSpinner} />
-          </div>
-        ) : imageUrl ? (
+        {imageUrl ? (
           <div className={styles.imageWrap}>
             <img src={imageUrl} alt={name} className={styles.productImage} />
             <button
