@@ -145,7 +145,7 @@ function SubCategoryBlock({ subCat, products, overallView, selectMode, selected,
   if (products.length === 0) return null;
 
   return (
-    <div className={styles.subBlock}>
+    <div className={styles.subBlock} id={`cat-section-${subCat.id}`}>
       <button className={styles.subLabel} onClick={() => setOpen(o => !o)}>
         <span>{subCat.icon} {subCat.name}</span>
         <span className={styles.subCount}>{products.length}</span>
