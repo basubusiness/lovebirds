@@ -20,6 +20,7 @@ function fromDb(row) {
     burnRate:                row.burn_rate,
     manualBurnQty:           row.manual_burn_qty ?? null,
     manualBurnIntervalDays:  row.manual_burn_interval_days ?? null,
+    masterItemId:            row.master_item_id ?? null,
     note:                    row.note,
   };
 }
@@ -38,6 +39,7 @@ function toDb(p, userId) {
     burn_rate:                  p.burnRate,
     manual_burn_qty:            p.manualBurnQty ?? null,
     manual_burn_interval_days:  p.manualBurnIntervalDays ?? null,
+    master_item_id:             p.masterItemId ?? null,
     note:                       p.note ?? '',
   };
 }
