@@ -92,3 +92,31 @@ export function useMasterItems() {
 
   return { items, loading, addMasterItem, updateMasterItem, deleteMasterItem, findByName };
 }
+
+/**
+ * Fetch an image from Unsplash for a master item and cache it in the DB.
+ * Skips if the item already has an image_url.
+ * @param {number} id   - master item id
+ * @param {string} name - product name to search for
+ * @param {string} currentUrl - existing image_url (skip if set)
+ */
+export async function fetchAndCacheImage(id, name, currentUrl) {
+  if (currentUrl) return currentUrl; // already cached
+
+  try {
+    const res  = await fetch(`/api/fetch-image?q=${encodeURIComponent(name + ' food')}`);
+    const data = await res.json();
+    if (!data.url) return null;
+
+    // Save to master_items
+    await supabase
+      .from('master_items')
+      .update({ image_url: data.url })
+      .eq('id', id);
+
+    return data.url;
+  } catch (e) {
+    console.warn('[fetchAndCacheImage] failed:', e.message);
+    return null;
+  }
+}
