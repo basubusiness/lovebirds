@@ -40,7 +40,10 @@ function AppInner() {
   const { burnRates, appendLog }              = useConsumptionLog();
   const { schedules, upsertSchedule }         = useVendorSchedules();
   const { items: masterItems,
-          loading: masterLoading }            = useMasterItems();
+          loading: masterLoading,
+          addMasterItem,
+          updateMasterItem,
+          deleteMasterItem }              = useMasterItems();
 
   const [tab,      setTab]      = useState('dashboard');
   const [modal,    setModal]    = useState(null);
@@ -84,21 +87,15 @@ function AppInner() {
     notify(`Deleted ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
   }, [setProducts]);
 
-  /* ── Accept learned rate — writes back as manual baseline ── */
-  const acceptLearnedRate = useCallback((productId, learnedRate) => {
-    setProducts(prev => prev.map(p => {
-      if (p.id !== productId) return p;
-      // Convert rate to a human-readable interval (round to nearest day)
-      const intervalDays = Math.max(1, Math.round(1 / learnedRate));
-      return {
-        ...p,
-        burnRate:               learnedRate,
-        manualBurnQty:          1,
-        manualBurnIntervalDays: intervalDays,
-      };
-    }));
-    notify('Consumption pattern updated from system learning');
-  }, [setProducts]);
+  /* ── Accept learned rate — updates master item pattern ── */
+  const acceptLearnedRate = useCallback(async (masterItemId, learnedRate) => {
+    const intervalDays = Math.max(1, Math.round(1 / learnedRate));
+    await updateMasterItem(masterItemId, {
+      default_burn_qty:              1,
+      default_burn_interval_days:    intervalDays,
+    });
+    notify('Pattern updated from system learning');
+  }, [updateMasterItem]);
 
   /* ── consume / restock / finished ── */
   const logConsume = useCallback(async (qty) => {
@@ -169,18 +166,29 @@ function AppInner() {
           );
           updated++;
         } else {
+          // Try to link new product to a master item by name
+          const qTokens = (item.editName || '').toLowerCase().split(/\s+/);
+          const masterMatch = masterItems.find(m => {
+            const mTokens = m.name.toLowerCase().split(/\s+/);
+            const inter = qTokens.filter(t => mTokens.includes(t)).length;
+            const union = new Set([...qTokens, ...mTokens]).size;
+            return union > 0 && inter / union >= 0.4;
+          });
           next.push({
             id:                     uid(),
             name:                   item.editName,
             cat:                    'Other',
-            categoryId:             item.editCategoryId ?? null,
+            categoryId:             item.editCategoryId ?? masterMatch?.category_id ?? null,
             unit:                   item.editUnit,
-            minQty:                 1,
+            minQty:                 masterMatch?.default_min_qty ?? 1,
             currentQty:             item.editQty,
             vendor:                 item.batchVendor || 'cactus',
-            burnRate:               0,
-            manualBurnQty:          null,
-            manualBurnIntervalDays: null,
+            burnRate:               masterMatch
+              ? (masterMatch.default_burn_qty / masterMatch.default_burn_interval_days)
+              : 0,
+            manualBurnQty:          masterMatch?.default_burn_qty ?? null,
+            manualBurnIntervalDays: masterMatch?.default_burn_interval_days ?? null,
+            masterItemId:           masterMatch?.id ?? null,
             note:                   '',
           });
           added++;
@@ -270,10 +278,14 @@ function AppInner() {
         {tab === 'vendors'  && <Vendors products={productsWithBurnRates} />}
         {tab === 'patterns' && (
           <PatternsTab
+            masterItems={masterItems}
+            loadingMaster={masterLoading}
             products={productsWithBurnRates}
             burnRates={burnRates}
+            onAddMaster={addMasterItem}
+            onUpdateMaster={updateMasterItem}
+            onDeleteMaster={deleteMasterItem}
             onAcceptLearned={acceptLearnedRate}
-            onEdit={p => setModal(p)}
           />
         )}
       </main>
