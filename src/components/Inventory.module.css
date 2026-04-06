@@ -99,6 +99,7 @@
   flex-direction: column;
   gap: 8px;
   transition: border-color 0.15s;
+  position: relative;
 }
 .card:hover { border-color: var(--border-medium); }
 
@@ -308,3 +309,157 @@
   cursor: pointer;
 }
 .actBtnSm:hover { background: var(--bg-secondary); }
+
+/* ── View toggle ─────────────────────────────────────────────── */
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 3px;
+}
+.viewBtn {
+  padding: 4px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.viewBtn:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+.viewBtnActive {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 0.5px solid var(--border-light);
+}
+
+/* ── Finished button ─────────────────────────────────────────── */
+.actFinished {
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+  font-size: 13px;
+}
+.actFinished:hover { background: #FAEEDA; color: #854F0B; }
+
+/* ── Split badge (overall view) ──────────────────────────────── */
+.splitBadge {
+  font-size: 10px;
+  background: #EAF3DE;
+  color: #3B6D11;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+/* ── Sub-entries (merged card, multi-vendor) ─────────────────── */
+.subEntries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--border-light);
+}
+.subEntry {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.subDot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.subName { flex: 1; color: var(--text-secondary); }
+.subQty  { color: var(--text-primary); font-weight: 500; min-width: 40px; text-align: right; }
+.actBtnSm {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 0.5px solid var(--border-light);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.actBtnSm:hover { background: var(--bg-secondary); }
+
+/* ── Bulk select ─────────────────────────────────────────────── */
+.selectBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 0.5px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.selectBtn:hover { background: var(--bg-secondary); }
+
+.bulkBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.selAllBtn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.selAllBtn:hover { background: var(--bg-secondary); }
+
+.selCount {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.confirmText {
+  font-size: 12px;
+  color: #A32D2D;
+  white-space: nowrap;
+}
+
+.bulkDeleteBtn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 0.5px solid #E24B4A;
+  background: #FCEBEB;
+  color: #A32D2D;
+  cursor: pointer;
+}
+.bulkDeleteBtn:hover { background: #E24B4A; color: #fff; }
+.bulkDeleteBtn:disabled { opacity: 0.4; cursor: default; }
+
+.exitSelectBtn {
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-light);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* ── Card select state ───────────────────────────────────────── */
+.cardCheckbox {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #E24B4A;
+}
+.cardSelected {
+  border-color: #E24B4A !important;
+  background: #fef9f9 !important;
+}
+.cardSelectOverlay {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border-radius: 12px;
+}

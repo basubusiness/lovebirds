@@ -33,9 +33,12 @@ function divergencePct(manual, learned) {
 export default function PatternsTab({ products, burnRates, onAcceptLearned, onEdit }) {
   const [view, setView] = useState('manual'); // 'manual' | 'learned'
 
-  // Only show products that have either a manual pattern or a learned rate
+  // Show all products with any consumption signal:
+  // manual pattern, raw burnRate (pre-patch4), or a learned rate from logs
   const tracked = products.filter(p =>
-    (p.manualBurnQty && p.manualBurnIntervalDays) || burnRates[p.id]
+    (p.manualBurnQty && p.manualBurnIntervalDays) ||
+    (p.burnRate && p.burnRate > 0) ||
+    burnRates[p.id]
   );
 
   // Products where divergence is notable (>20%)
@@ -93,13 +96,18 @@ export default function PatternsTab({ products, burnRates, onAcceptLearned, onEd
             const diff        = divergencePct(manualRate, learnedRate);
             const isDiverged  = diff !== null && diff > 20;
 
-            const displayRate = view === 'manual'
+            // For pre-patch4 products, fall back to raw burnRate for manual display
+            const manualDisplay = p.manualBurnQty && p.manualBurnIntervalDays
               ? manualToHuman(p.manualBurnQty, p.manualBurnIntervalDays, p.unit)
+              : rateToHuman(manualRate, p.unit);
+
+            const displayRate = view === 'manual'
+              ? manualDisplay
               : rateToHuman(learnedRate, p.unit);
 
             const otherRate = view === 'manual'
               ? rateToHuman(learnedRate, p.unit)
-              : manualToHuman(p.manualBurnQty, p.manualBurnIntervalDays, p.unit);
+              : manualDisplay;
 
             return (
               <div

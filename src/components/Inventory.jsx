@@ -5,7 +5,7 @@ import styles from './Inventory.module.css';
 
 // ── Single product card ───────────────────────────────────────
 
-function ProductCard({ p, catIcon, onEdit, onConsume, onRestock, onFinished }) {
+function ProductCard({ p, catIcon, selectMode, selected, onToggleSelect, onEdit, onConsume, onRestock, onFinished }) {
   const st  = getStatus(p);
   const dl  = daysLeft(p);
   const v   = vendorOf(p.vendor);
@@ -42,12 +42,17 @@ function ProductCard({ p, catIcon, onEdit, onConsume, onRestock, onFinished }) {
         )}
       </div>
 
-      <div className={styles.cardActions}>
-        <button className={styles.actBtn} onClick={() => onConsume(p)} title="Log use">−</button>
-        <button className={`${styles.actBtn} ${styles.actRestock}`} onClick={() => onRestock(p)}>+ restock</button>
-        <button className={`${styles.actBtn} ${styles.actFinished}`} onClick={() => onFinished(p)} title="Mark finished">∅</button>
-        <button className={styles.actBtn} onClick={() => onEdit(p)} title="Edit">✎</button>
-      </div>
+      {!selectMode && (
+        <div className={styles.cardActions}>
+          <button className={styles.actBtn} onClick={() => onConsume(p)} title="Log use">−</button>
+          <button className={`${styles.actBtn} ${styles.actRestock}`} onClick={() => onRestock(p)}>+ restock</button>
+          <button className={`${styles.actBtn} ${styles.actFinished}`} onClick={() => onFinished(p)} title="Mark finished">∅</button>
+          <button className={styles.actBtn} onClick={() => onEdit(p)} title="Edit">✎</button>
+        </div>
+      )}
+      {selectMode && (
+        <div className={styles.cardSelectOverlay} onClick={() => onToggleSelect(p.id)} />
+      )}
     </div>
   );
 }
@@ -122,7 +127,7 @@ function MergedCard({ name, entries, catIcon, onEdit, onConsume, onRestock, onFi
 
 // ── Sub-category block ────────────────────────────────────────
 
-function SubCategoryBlock({ subCat, products, overallView, onEdit, onConsume, onRestock, onFinished }) {
+function SubCategoryBlock({ subCat, products, overallView, selectMode, selected, onToggleSelect, onEdit, onConsume, onRestock, onFinished }) {
   const [open, setOpen] = useState(true);
   // In overall view, merge products with same name
   // useMemo must be called before any early return (Rules of Hooks)
@@ -166,6 +171,9 @@ function SubCategoryBlock({ subCat, products, overallView, onEdit, onConsume, on
                   key={p.id}
                   p={p}
                   catIcon={subCat.icon || '📦'}
+                  selectMode={selectMode}
+                  selected={selected}
+                  onToggleSelect={onToggleSelect}
                   onEdit={onEdit}
                   onConsume={onConsume}
                   onRestock={onRestock}
@@ -181,7 +189,7 @@ function SubCategoryBlock({ subCat, products, overallView, onEdit, onConsume, on
 
 // ── Top-level category section ────────────────────────────────
 
-function CategorySection({ topCat, subCats, products, overallView, onEdit, onConsume, onRestock, onFinished }) {
+function CategorySection({ topCat, subCats, products, overallView, selectMode, selected, onToggleSelect, onEdit, onConsume, onRestock, onFinished }) {
   const [open, setOpen] = useState(true);
 
   const unassigned = products.filter(p =>
@@ -208,6 +216,9 @@ function CategorySection({ topCat, subCats, products, overallView, onEdit, onCon
               subCat={sub}
               products={products.filter(p => p.categoryId === sub.id)}
               overallView={overallView}
+              selectMode={selectMode}
+              selected={selected}
+              onToggleSelect={onToggleSelect}
               onEdit={onEdit}
               onConsume={onConsume}
               onRestock={onRestock}
@@ -221,6 +232,9 @@ function CategorySection({ topCat, subCats, products, overallView, onEdit, onCon
                   key={p.id}
                   p={p}
                   catIcon={topCat.icon || '📦'}
+                  selectMode={selectMode}
+                  selected={selected}
+                  onToggleSelect={onToggleSelect}
                   onEdit={onEdit}
                   onConsume={onConsume}
                   onRestock={onRestock}
@@ -237,23 +251,49 @@ function CategorySection({ topCat, subCats, products, overallView, onEdit, onCon
 
 // ── Main Inventory ────────────────────────────────────────────
 
-export default function Inventory({ products, onEdit, onConsume, onRestock, onFinished, onAdd }) {
+export default function Inventory({ products, onEdit, onConsume, onRestock, onFinished, onAdd, onBulkDelete }) {
   const [search,      setSearch]      = useState('');
   const [sort,        setSort]        = useState('status');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterVendor, setFilterVendor] = useState('all');
   const [overallView, setOverallView] = useState(true);
+  const [selectMode,  setSelectMode]  = useState(false);
+  const [selected,    setSelected]    = useState(new Set());
+  const [confirmDel,  setConfirmDel]  = useState(false);
   const { topLevel, childrenOf, byId, loading: catsLoading } = useCategories();
 
   const statusOrder = { critical: 0, low: 1, ok: 2 };
 
-  let shown = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Unique vendors present in inventory
+  const vendorIds = [...new Set(products.map(p => p.vendor))];
+
+  let shown = products.filter(p => {
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus !== 'all' && getStatus(p) !== filterStatus) return false;
+    if (filterVendor !== 'all' && p.vendor !== filterVendor) return false;
+    return true;
+  });
 
   if (sort === 'status') shown = [...shown].sort((a, b) => statusOrder[getStatus(a)] - statusOrder[getStatus(b)]);
   else if (sort === 'name') shown = [...shown].sort((a, b) => a.name.localeCompare(b.name));
   else if (sort === 'qty')  shown = [...shown].sort((a, b) => a.currentQty - b.currentQty);
 
   const uncategorized = shown.filter(p => !p.categoryId || !byId(p.categoryId));
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const selectAll  = () => setSelected(new Set(shown.map(p => p.id)));
+  const clearSel   = () => setSelected(new Set());
+  const exitSelect = () => { setSelectMode(false); clearSel(); setConfirmDel(false); };
+
+  const handleBulkDelete = () => {
+    onBulkDelete([...selected]);
+    exitSelect();
+  };
 
   return (
     <div>
@@ -269,6 +309,16 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
           <option value="name">By name</option>
           <option value="qty">By qty</option>
         </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={styles.filterSelect}>
+          <option value="all">All statuses</option>
+          <option value="critical">Critical</option>
+          <option value="low">Low</option>
+          <option value="ok">OK</option>
+        </select>
+        <select value={filterVendor} onChange={e => setFilterVendor(e.target.value)} className={styles.filterSelect}>
+          <option value="all">All vendors</option>
+          {vendorIds.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
 
         {/* View toggle */}
         <div className={styles.viewToggle}>
@@ -282,7 +332,32 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
           >By vendor</button>
         </div>
 
-        <button className={styles.addBtn} onClick={onAdd}>+ Add item</button>
+        {!selectMode ? (
+          <>
+            <button className={styles.selectBtn} onClick={() => setSelectMode(true)}>Select</button>
+            <button className={styles.addBtn} onClick={onAdd}>+ Add item</button>
+          </>
+        ) : (
+          <div className={styles.bulkBar}>
+            <button className={styles.selAllBtn} onClick={selectAll}>All ({shown.length})</button>
+            <button className={styles.selAllBtn} onClick={clearSel}>None</button>
+            <span className={styles.selCount}>{selected.size} selected</span>
+            {!confirmDel ? (
+              <button
+                className={styles.bulkDeleteBtn}
+                disabled={selected.size === 0}
+                onClick={() => setConfirmDel(true)}
+              >Delete selected</button>
+            ) : (
+              <>
+                <span className={styles.confirmText}>Delete {selected.size} item{selected.size !== 1 ? 's' : ''}?</span>
+                <button className={styles.bulkDeleteBtn} onClick={handleBulkDelete}>Confirm</button>
+                <button onClick={() => setConfirmDel(false)}>Cancel</button>
+              </>
+            )}
+            <button className={styles.exitSelectBtn} onClick={exitSelect}>✕</button>
+          </div>
+        )}
       </div>
 
       {catsLoading ? (
@@ -304,6 +379,9 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
                 subCats={subs}
                 products={catProducts}
                 overallView={overallView}
+                selectMode={selectMode}
+                selected={selected}
+                onToggleSelect={toggleSelect}
                 onEdit={onEdit}
                 onConsume={onConsume}
                 onRestock={onRestock}
@@ -317,6 +395,9 @@ export default function Inventory({ products, onEdit, onConsume, onRestock, onFi
               subCats={[]}
               products={uncategorized}
               overallView={overallView}
+              selectMode={selectMode}
+              selected={selected}
+              onToggleSelect={toggleSelect}
               onEdit={onEdit}
               onConsume={onConsume}
               onRestock={onRestock}
