@@ -4,6 +4,7 @@ import { useImports }         from './hooks/useImports';
 import { useConsumptionLog }  from './hooks/useConsumptionLog';
 import { useVendorSchedules } from './hooks/useVendorSchedules';
 import { useMasterItems }     from './hooks/useMasterItems';
+import { useProductImages }   from './hooks/useProductImages';
 
 import { getStatus, uid }     from './utils';
 import { useCategories }      from './hooks/useCategories';
@@ -65,12 +66,18 @@ function AppInner() {
 
   const notify = msg => setToast(msg);
 
-  // Merge EWMA burn rates + master item image URLs into products
-  const masterItemMap = Object.fromEntries(masterItems.map(m => [m.id, m]));
+  // Seed + fetch product images (stored on products table, user-owned)
+  const [_imagesSeeded, setImagesSeeded] = useState(false);
+  if (products.length > 0 && !_imagesSeeded) {
+    setImagesSeeded(true);
+    seedFromProducts(products);
+    fetchMissing(products);
+  }
+
   const productsWithBurnRates = products.map(p => ({
     ...p,
     burnRate: burnRates[p.id] ?? p.burnRate,
-    _imageUrl: p.masterItemId ? (masterItemMap[p.masterItemId]?.image_url ?? null) : null,
+    _imageUrl: imageUrls[p.id] ?? p.image_url ?? null,
   }));
 
   /* ── product CRUD ── */
