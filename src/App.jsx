@@ -78,6 +78,12 @@ function AppInner() {
     notify('Product removed');
   }, [setProducts]);
 
+  const bulkDeleteProducts = useCallback((ids) => {
+    const idSet = new Set(ids);
+    setProducts(prev => prev.filter(p => !idSet.has(p.id)));
+    notify(`Deleted ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+  }, [setProducts]);
+
   /* ── Accept learned rate — writes back as manual baseline ── */
   const acceptLearnedRate = useCallback((productId, learnedRate) => {
     setProducts(prev => prev.map(p => {
@@ -151,7 +157,14 @@ function AppInner() {
         if (match) {
           next = next.map(p =>
             p.id === match.id
-              ? { ...p, currentQty: parseFloat((p.currentQty + item.editQty).toFixed(2)) }
+              ? {
+                  ...p,
+                  currentQty: parseFloat((p.currentQty + item.editQty).toFixed(2)),
+                  // Update name to English canonical if user kept the suggested translation
+                  name: item.editName || p.name,
+                  // Update category if user set one in the confirm screen
+                  categoryId: item.editCategoryId ?? p.categoryId,
+                }
               : p
           );
           updated++;
@@ -250,6 +263,7 @@ function AppInner() {
             onRestock={p => setRestock(p)}
             onFinished={p => setFinished(p)}
             onAdd={() => setModal({})}
+            onBulkDelete={bulkDeleteProducts}
           />
         )}
         {tab === 'alerts'   && <Alerts  products={productsWithBurnRates} />}
